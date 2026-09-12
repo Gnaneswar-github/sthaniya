@@ -26,6 +26,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid itinerary request." }, { status: 400 });
   }
 
-  const pool = getRecommendations(parsed.destination);
+  const pool = await getRecommendations(parsed.destination);
   return Response.json(buildItinerary(pool, parsed));
 }

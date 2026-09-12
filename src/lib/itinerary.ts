@@ -1,4 +1,5 @@
 import {
+  SUPPORTED_CITIES,
   TIME_BUCKETS,
   type DialPosition,
   type Interest,
@@ -89,10 +90,13 @@ export function buildItinerary(pool: Recommendation[], req: ItineraryRequest): I
   const base = { destination: req.destination, timeBucket: req.timeBucket, dial: req.dial, interests: req.interests };
 
   if (pool.length === 0) {
+    const known = SUPPORTED_CITIES.join(", ");
     return {
       ...base,
       stops: [],
-      notes: [`We haven't mapped ${req.destination} yet — Sthānīya currently knows Kumbakonam, Pune and Mumbai.`],
+      notes: [
+        `We haven't mapped ${req.destination} yet — a city only goes live here once someone has checked every recommendation by hand. So far that's ${known}.`,
+      ],
     };
   }
 

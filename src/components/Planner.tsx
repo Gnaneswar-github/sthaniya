@@ -6,6 +6,7 @@ import {
   DIAL_POSITIONS,
   INTERESTS,
   LOCALITY_TAGS,
+  SUPPORTED_CITIES,
   TIME_BUCKETS,
   type DialPosition,
   type Interest,
@@ -13,7 +14,6 @@ import {
   type TimeBucket,
 } from "@/lib/types";
 
-const CITY_SUGGESTIONS = ["Pune", "Kumbakonam", "Mumbai"];
 const MAX_INTERESTS = 3;
 const STEPS = ["Where", "How long", "What you're into", "How local"];
 
@@ -153,7 +153,7 @@ export function Planner() {
             className="w-full rounded-xl border border-line bg-paper-raised px-4 py-4 font-display text-2xl text-ink outline-none placeholder:text-ink-faint/60 focus:border-terracotta"
           />
           <div className="flex flex-wrap gap-2">
-            {CITY_SUGGESTIONS.map((city) => (
+            {SUPPORTED_CITIES.map((city) => (
               <button
                 key={city}
                 type="button"

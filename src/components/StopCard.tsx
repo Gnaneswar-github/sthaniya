@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { LOCALITY_TAGS, type ItineraryStop, type LocalityTag } from "@/lib/types";
 
 const TAG_STYLE: Record<LocalityTag, { pill: string; band: string }> = {
@@ -27,15 +28,26 @@ export function StopCard({ stop }: { stop: ItineraryStop }) {
 
   return (
     <article className="overflow-hidden rounded-2xl border border-line bg-paper-raised shadow-[0_1px_2px_rgba(36,31,27,0.04)]">
-      {/* Placeholder visual — real photography still needs licensed sourcing. */}
-      <div
-        className={`flex h-28 items-end bg-gradient-to-br ${style.band} px-5 pb-3`}
-        aria-hidden
-      >
-        <span className="font-display text-5xl leading-none text-paper-raised/90">
-          {stop.name.charAt(0)}
-        </span>
-      </div>
+      {stop.photo ? (
+        <div className="relative h-44">
+          <Image
+            src={stop.photo.url}
+            alt={stop.name}
+            fill
+            sizes="(max-width: 640px) 100vw, 512px"
+            className="object-cover"
+          />
+          <span className="absolute right-0 bottom-0 bg-ink/55 px-2 py-0.5 text-[10px] text-paper-raised">
+            {stop.photo.credit}
+          </span>
+        </div>
+      ) : (
+        <div className={`flex h-28 items-end bg-gradient-to-br ${style.band} px-5 pb-3`} aria-hidden>
+          <span className="font-display text-5xl leading-none text-paper-raised/90">
+            {stop.name.charAt(0)}
+          </span>
+        </div>
+      )}
 
       <div className="space-y-3 p-5">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

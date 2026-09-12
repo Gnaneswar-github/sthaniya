@@ -1,3 +1,9 @@
+/**
+ * Cities with verified data behind them. A city joins this list only once its anchors
+ * are checked (PRD §9) — never just because it is on the roadmap.
+ */
+export const SUPPORTED_CITIES = ["Pune"];
+
 export const INTERESTS = [
   { id: "food", label: "Food" },
   { id: "spiritual", label: "Spiritual" },
@@ -45,11 +51,19 @@ export const LOCALITY_TAGS = {
 
 export type LocalityTag = keyof typeof LOCALITY_TAGS;
 
+/** Wikimedia Commons image. `credit` must be shown on the card to satisfy CC attribution. */
+export type Photo = {
+  url: string;
+  credit: string;
+  sourceUrl: string;
+};
+
 export type Recommendation = {
   id: string;
   name: string;
   destination: string;
   tag: LocalityTag;
+  photo?: Photo;
   interests: Interest[];
   /** Local clock times, "HH:MM", used to order stops and avoid double-booking a slot. */
   timeWindow: { start: string; end: string };
