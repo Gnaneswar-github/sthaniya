@@ -6,6 +6,12 @@ create table if not exists recommendations (
   name          text        not null,
   destination   text        not null,
   tag           text        not null check (tag in ('tourist_essential', 'local_favourite', 'hidden_gem')),
+  category      text        not null check (category in ('food','cafe','temple','sight','museum','market','outdoors')),
+  price_band    text        not null check (price_band in ('free','low','mid','high')),
+  duration_minutes int      not null,
+  -- Null where OpenStreetMap had no trustworthy match; never filled with a guess.
+  lat           double precision,
+  lng           double precision,
   interests     text[]      not null default '{}',
   window_start  text        not null,
   window_end    text        not null,

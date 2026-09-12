@@ -1,7 +1,7 @@
 import { PHOTOS } from "./data/photos";
 import { PUNE } from "./data/pune";
 import { supabase } from "./supabase";
-import type { Interest, LocalityTag, Recommendation } from "./types";
+import type { Category, Interest, LocalityTag, PriceBand, Recommendation } from "./types";
 
 /**
  * Single seam between the app and the recommendation dataset.
@@ -18,6 +18,11 @@ type Row = {
   name: string;
   destination: string;
   tag: LocalityTag;
+  category: Category;
+  price_band: PriceBand;
+  duration_minutes: number;
+  lat: number | null;
+  lng: number | null;
   interests: Interest[];
   window_start: string;
   window_end: string;
@@ -35,6 +40,10 @@ function fromRow(row: Row): Recommendation {
     name: row.name,
     destination: row.destination,
     tag: row.tag,
+    category: row.category,
+    priceBand: row.price_band,
+    durationMinutes: row.duration_minutes,
+    coords: row.lat !== null && row.lng !== null ? { lat: row.lat, lng: row.lng } : undefined,
     interests: row.interests,
     timeWindow: { start: row.window_start, end: row.window_end },
     vibe: row.vibe,

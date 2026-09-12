@@ -4,24 +4,24 @@
  */
 export const SUPPORTED_CITIES = ["Pune"];
 
+/**
+ * Deliberately limited to interests the dataset can actually serve. Offering Nightlife or
+ * Wellness with nothing behind them would produce empty days, which is the failure the
+ * resilience rule exists to prevent.
+ */
 export const INTERESTS = [
   { id: "food", label: "Food" },
+  { id: "cafes", label: "Cafés" },
   { id: "spiritual", label: "Spiritual" },
   { id: "history", label: "History" },
+  { id: "architecture", label: "Architecture" },
   { id: "nature", label: "Nature" },
+  { id: "markets", label: "Markets" },
+  { id: "photography", label: "Photography" },
   { id: "local_life", label: "Local Life" },
 ] as const;
 
 export type Interest = (typeof INTERESTS)[number]["id"];
-
-export const TIME_BUCKETS = [
-  { id: "3h", label: "3 hours", days: 1, stopsPerDay: 2 },
-  { id: "half_day", label: "Half a day", days: 1, stopsPerDay: 3 },
-  { id: "full_day", label: "A full day", days: 1, stopsPerDay: 5 },
-  { id: "multi_day", label: "2–3 days", days: 3, stopsPerDay: 3 },
-] as const;
-
-export type TimeBucket = (typeof TIME_BUCKETS)[number]["id"];
 
 export const DIAL_POSITIONS = [
   {
@@ -58,14 +58,50 @@ export type Photo = {
   sourceUrl: string;
 };
 
+export const CATEGORIES = {
+  food: "Food",
+  cafe: "Café",
+  temple: "Temple",
+  sight: "Sight",
+  museum: "Museum",
+  market: "Market",
+  outdoors: "Outdoors",
+} as const;
+
+export type Category = keyof typeof CATEGORIES;
+
+/**
+ * Coarse bands rather than exact prices. We have no live pricing source, and inventing
+ * "₹30" on a card would be exactly the fabrication the evidence field exists to prevent.
+ * `approxInr` is a per-person planning estimate, surfaced as an estimate in the UI.
+ */
+export const PRICE_BANDS = {
+  free: { label: "Free", approxInr: 0 },
+  low: { label: "₹", approxInr: 120 },
+  mid: { label: "₹₹", approxInr: 400 },
+  high: { label: "₹₹₹", approxInr: 1000 },
+} as const;
+
+export type PriceBand = keyof typeof PRICE_BANDS;
+
+export type Coords = { lat: number; lng: number };
+
 export type Recommendation = {
   id: string;
   name: string;
   destination: string;
   tag: LocalityTag;
+  category: Category;
+  priceBand: PriceBand;
+  /** Typical time on site, in minutes — drives scheduling and the "slow it down" transform. */
+  durationMinutes: number;
+  coords?: Coords;
   photo?: Photo;
   interests: Interest[];
-  /** Local clock times, "HH:MM", used to order stops and avoid double-booking a slot. */
+  /**
+   * The window this place is genuinely best in ("HH:MM"), e.g. a temple at dawn.
+   * The scheduler honours it where it can and says so when it can't.
+   */
   timeWindow: { start: string; end: string };
   vibe: string;
   description: string;
@@ -81,25 +117,61 @@ export type Recommendation = {
   priority: number;
 };
 
-export type ItineraryRequest = {
+export const TRAVELLER_TYPES = [
+  { id: "solo", label: "Solo" },
+  { id: "couple", label: "Couple" },
+  { id: "friends", label: "Friends" },
+  { id: "family", label: "Family" },
+  { id: "business", label: "Business" },
+] as const;
+
+export type TravellerType = (typeof TRAVELLER_TYPES)[number]["id"];
+
+export const PACES = [
+  { id: "relaxed", label: "Relaxed", itemsPerDay: 3, blurb: "Room to linger. Fewer stops, longer at each." },
+  { id: "balanced", label: "Balanced", itemsPerDay: 5, blurb: "A full day without rushing it." },
+  { id: "packed", label: "Packed", itemsPerDay: 7, blurb: "You want to see everything. Bring good shoes." },
+] as const;
+
+export type Pace = (typeof PACES)[number]["id"];
+
+export type TripPrefs = {
   destination: string;
-  timeBucket: TimeBucket;
+  /** ISO dates, "YYYY-MM-DD". */
+  startDate: string;
+  endDate: string;
+  travellerType: TravellerType;
   interests: Interest[];
+  /** The locality dial, carried over from v1 — it remains the product's differentiator. */
   dial: DialPosition;
+  pace: Pace;
+  budgetPerDayInr: number;
+  /** Free text. Richer signal than any checkbox, so it is never silently dropped. */
+  notes: string;
 };
 
-export type ItineraryStop = Recommendation & {
-  day: number;
-  whyItFitsLine: string;
-  skip: boolean;
+export type ItineraryItem = {
+  itemId: string;
+  place: Recommendation;
+  /** Minutes from midnight. Owned by the scheduler, rewritten on every edit. */
+  startMinutes: number;
+  durationMinutes: number;
+  /** Set when the place could not be given its preferred window. */
+  offPreferredWindow?: boolean;
 };
 
-export type Itinerary = {
-  destination: string;
-  timeBucket: TimeBucket;
-  dial: DialPosition;
-  interests: Interest[];
-  stops: ItineraryStop[];
-  /** Plain-language shortfalls, shown to the user instead of padding the list. */
+export type TripDay = {
+  /** ISO date, "YYYY-MM-DD". */
+  date: string;
+  items: ItineraryItem[];
+};
+
+export type Trip = {
+  id: string;
+  prefs: TripPrefs;
+  days: TripDay[];
+  /** Plain-language shortfalls and explanations, surfaced rather than hidden. */
   notes: string[];
+  createdAt: string;
 };
+
