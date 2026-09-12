@@ -54,17 +54,29 @@ function withPhotos(records: Recommendation[]): Recommendation[] {
   return records.map((rec) => ({ ...rec, photo: PHOTOS[rec.id] }));
 }
 
+/**
+ * Supabase gets a hard deadline. An unreachable or empty table must cost the user a moment,
+ * not the whole itinerary: left unbounded, supabase-js retried a missing table for ~7s,
+ * which would read as a hang on stage.
+ */
+const SUPABASE_DEADLINE_MS = 1200;
+
 export async function getRecommendations(destination: string): Promise<Recommendation[]> {
   const wanted = normalise(destination);
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from("recommendations")
-      .select("*")
-      .ilike("destination", wanted);
+    try {
+      const { data, error } = await supabase
+        .from("recommendations")
+        .select("*")
+        .ilike("destination", wanted)
+        .abortSignal(AbortSignal.timeout(SUPABASE_DEADLINE_MS));
 
-    if (!error && data && data.length > 0) {
-      return withPhotos((data as Row[]).map(fromRow));
+      if (!error && data && data.length > 0) {
+        return withPhotos((data as Row[]).map(fromRow));
+      }
+    } catch {
+      // Fall through to the seeded copy below.
     }
   }
 
