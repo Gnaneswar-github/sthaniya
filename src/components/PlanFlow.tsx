@@ -264,14 +264,23 @@ export function PlanFlow({ query }: { query: string }) {
  * allowed to look like it.
  */
 function Provenance({ meta }: { meta: DraftMeta }) {
+  // Name the source that actually supplied the places. The banner used to say
+  // "OpenStreetMap" even when Overpass was down and every place came from Wikipedia.
+  const sourceLabel =
+    meta.source === "wikipedia"
+      ? "Wikipedia articles with map coordinates"
+      : meta.source === "openstreetmap+wikipedia"
+        ? "OpenStreetMap entries and Wikipedia articles"
+        : "OpenStreetMap entries";
+
   return (
     <section className="rise rounded-2xl border border-gold/40 bg-gold/5 px-4 py-3.5">
       <p className="text-sm font-semibold text-ink">Drafted, not verified</p>
       <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-        Nobody from Sthānīya has been to {meta.destination}. Every place below is a real,
-        mapped location taken from {meta.candidatesConsidered} OpenStreetMap entries — the
-        model chose and described them, it didn&rsquo;t name them. Treat opening hours and
-        prices as unknown until you check.
+        Nobody from Sthānīya has been to {meta.destination}. Every place below is a real
+        location taken from {meta.candidatesConsidered} {sourceLabel} — the model chose and
+        described them, it didn&rsquo;t name them. Treat opening hours and prices as unknown
+        until you check.
       </p>
       {meta.inventedPlacesRejected > 0 && (
         <p className="mt-1.5 text-xs text-ink-faint">

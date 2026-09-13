@@ -45,6 +45,9 @@ TASK
 Choose about ${target} places that suit this traveller, this season and this pace.
 Spread them across the day: mornings, meals at sensible hours, evenings.
 Respect the locality preference when classifying.
+Cover what they asked for. Every interest listed above, and anything specific they named in their own words (for example "old churches"), must appear in the selection whenever a candidate fits it.
+Meals are part of a day, not the whole of it: at most two restaurants or cafés per day of the trip.
+Do not choose a place that is the destination itself or an administrative area (a city, district, province or region) — only places a person can actually go to.
 
 Return JSON exactly:
 {"places":[{
@@ -226,9 +229,10 @@ export class GroqGenerator implements ItineraryGenerator {
         category: CATEGORIES.includes(raw.category as Category)
           ? (raw.category as Category)
           : "sight",
-        priceBand: BANDS.includes(raw.priceBand as PriceBand)
-          ? (raw.priceBand as PriceBand)
-          : "unknown",
+        // Always unknown. The model has no pricing source, and a deployed Tbilisi draft
+        // labelled a museum "Free" on its say-so — a factual claim nobody checked. Price is
+        // only shown for verified places, where a person has.
+        priceBand: "unknown",
         durationMinutes: clampDuration(raw.durationMinutes),
         coords: candidate.coords,
         interests: interests.length > 0 ? interests : ["local_life"],

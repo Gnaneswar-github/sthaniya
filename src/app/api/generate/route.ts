@@ -67,7 +67,20 @@ export async function POST(request: Request) {
     const grounded = await fetchGroundedCandidates(place.coords);
     // Sixty is plenty to choose a few days from, and keeps one draft well inside the
     // per-minute token allowance — ninety candidates alone ate half of it.
-    const candidates = grounded.candidates.slice(0, 60);
+    // Wikipedia geosearch returns articles about the city and its districts too, and a
+    // Cusco draft listed "Cusco" and "Cusco District" as stops. An area is not a place to go.
+    const destinationKey = place.name.toLowerCase();
+    const ADMIN_AREA = /\b(district|province|region|municipality|department|prefecture|governorate|oblast|county|metropolitan area|commune|canton)$/i;
+    // Same class of mistake: a Tbilisi draft offered a metro station as a stop.
+    const TRANSIT = /\((?:[^)]*\b)?(metro|subway|underground|tram|railway|mrt|lrt)\b[^)]*\)|\b(station|airport|bus terminal|interchange)\b/i;
+    const candidates = grounded.candidates
+      .filter(
+        (c) =>
+          c.name.toLowerCase() !== destinationKey &&
+          !ADMIN_AREA.test(c.name.trim()) &&
+          !TRANSIT.test(c.name),
+      )
+      .slice(0, 60);
     const { source } = grounded;
     if (candidates.length === 0) {
       return Response.json(
