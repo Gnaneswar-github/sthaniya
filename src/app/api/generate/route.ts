@@ -1,4 +1,4 @@
-import { createGenerator } from "@/lib/ai/groq";
+import { createGenerator, GroqError } from "@/lib/ai/groq";
 import { destinationService } from "@/lib/destinations/service";
 import { fetchGroundedCandidates } from "@/lib/places/overpass";
 import { PACES, type TripPrefs } from "@/lib/types";
@@ -13,6 +13,12 @@ import { PACES, type TripPrefs } from "@/lib/types";
  *
  * The model never supplies a place name. It chooses among places that demonstrably exist.
  */
+
+/**
+ * Map retrieval plus a model call can take most of a minute when Overpass is busy. The
+ * platform default would cut the request off mid-draft, which is worse than waiting.
+ */
+export const maxDuration = 120;
 
 /** Seasons differ by hemisphere; a December trip is not winter everywhere. */
 function seasonFor(isoDate: string, lat: number | null): string {
@@ -97,9 +103,17 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "unknown";
+    // The detail goes to the logs. Travellers get a sentence they can act on, not a runtime
+    // exception — the last one leaked a ByteString error straight into the page.
+    console.error("[generate]", prefs.destination, error);
+    const busy = error instanceof GroqError && error.retryable;
     return Response.json(
-      { error: `We couldn't draft a trip for ${prefs.destination} just now. (${message})`, places: [] },
+      {
+        error: busy
+          ? `The trip drafter is busy right now. Give it a few seconds and try ${prefs.destination} again.`
+          : `We couldn't draft a trip for ${prefs.destination} just now. Please try again in a moment.`,
+        places: [],
+      },
       { status: 502 },
     );
   }

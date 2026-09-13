@@ -2,6 +2,7 @@ import { expandAlias } from "./aliases";
 import { normalise, score } from "./fuzzy";
 import { CURATED, CuratedProvider } from "./providers/curated";
 import { NominatimProvider } from "./providers/nominatim";
+import { OpenMeteoProvider } from "./providers/openmeteo";
 import type { Destination, DestinationProvider, PopularityProvider } from "./types";
 
 /**
@@ -74,6 +75,8 @@ export class DestinationService {
 export const destinationService = new DestinationService([
   new CuratedProvider(),
   new NominatimProvider(),
+  // A second geocoder, so a throttled Nominatim can't make a real city "unfindable".
+  new OpenMeteoProvider(),
 ]);
 
 /** Shown before the traveller types anything. Real content, not a popularity claim. */

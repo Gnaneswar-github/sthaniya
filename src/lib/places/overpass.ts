@@ -25,6 +25,7 @@ export type Candidate = {
 
 const ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
 ];
 
@@ -146,7 +147,7 @@ function balance(candidates: Candidate[], limit: number): Candidate[] {
 export async function fetchCandidates(coords: Coords, limit = 90): Promise<Candidate[]> {
   // A tight budget on purpose: an earlier version spent 114s exhausting retries before
   // admitting defeat, which is far worse for the traveller than a fast, honest failure.
-  const deadline = Date.now() + 28_000;
+  const deadline = Date.now() + 24_000;
   const radii = [4000, 12000];
 
   for (const radius of radii) {
@@ -157,7 +158,8 @@ export async function fetchCandidates(coords: Coords, limit = 90): Promise<Candi
         const elements = await query(
           endpoint,
           buildQuery(coords, radius),
-          AbortSignal.timeout(Math.min(remaining, 20_000)),
+          // A single slow mirror mustn't eat the whole budget before the others get a turn.
+          AbortSignal.timeout(Math.min(remaining, 12_000)),
         );
 
         const candidates: Candidate[] = [];
@@ -202,11 +204,14 @@ export async function fetchCandidates(coords: Coords, limit = 90): Promise<Candi
 export async function fetchGroundedCandidates(
   coords: Coords,
 ): Promise<{ candidates: Candidate[]; source: string }> {
+  // Both start at once. Waiting for Overpass to fail before asking Wikipedia cost a Marrakech
+  // traveller 24 dead seconds; in parallel, the fallback is already in hand when it's needed.
+  const wiki = fetchWikiCandidates(coords).catch(() => [] as Candidate[]);
   const fromOsm = await fetchCandidates(coords);
   if (fromOsm.length >= 12) return { candidates: fromOsm, source: "openstreetmap" };
 
   try {
-    const fromWiki = await fetchWikiCandidates(coords);
+    const fromWiki = await wiki;
     if (fromWiki.length === 0) {
       return { candidates: fromOsm, source: "openstreetmap" };
     }

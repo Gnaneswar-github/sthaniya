@@ -1,4 +1,5 @@
 import type { GenerationInput, GenerationResult, ItineraryGenerator } from "./types";
+import { readEnv } from "@/lib/env";
 import { INTERESTS, type Category, type Interest, type LocalityTag, type PriceBand, type Recommendation } from "@/lib/types";
 
 const ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
@@ -75,6 +76,15 @@ type RawPlace = {
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+export class GroqError extends Error {
+  constructor(
+    readonly status: number,
+    readonly retryable: boolean,
+  ) {
+    super(status ? `Groq responded ${status}` : "Groq returned an unreadable response");
+  }
+}
+
 function clampDuration(value: unknown): number {
   const n = typeof value === "number" ? value : 60;
   return Math.min(240, Math.max(30, Math.round(n)));
@@ -89,6 +99,24 @@ export class GroqGenerator implements ItineraryGenerator {
   ) {}
 
   async generate(input: GenerationInput): Promise<GenerationResult> {
+    // One retry covers the failures that are genuinely transient — rate limits, a busy
+    // upstream, a truncated JSON body. Anything else fails straight away.
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const result = await this.attempt(input);
+        if (result.places.length > 0 || attempt === 1) return result;
+        lastError = new Error("Groq chose no usable places");
+      } catch (error) {
+        lastError = error;
+        if (error instanceof GroqError && !error.retryable) throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    }
+    throw lastError;
+  }
+
+  private async attempt(input: GenerationInput): Promise<GenerationResult> {
     const response = await fetch(ENDPOINT, {
       method: "POST",
       headers: {
@@ -105,20 +133,26 @@ export class GroqGenerator implements ItineraryGenerator {
         temperature: 0.5,
         max_tokens: 6000,
       }),
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.timeout(40_000),
     });
 
     if (!response.ok) {
-      throw new Error(`Groq responded ${response.status}`);
+      throw new GroqError(response.status, response.status === 429 || response.status >= 500);
     }
 
     const payload = (await response.json()) as {
       choices?: { message?: { content?: string } }[];
     };
     const content = payload.choices?.[0]?.message?.content;
-    if (!content) throw new Error("Groq returned no content");
+    if (!content) throw new GroqError(0, true);
 
-    return this.toRecommendations(JSON.parse(content) as { places?: RawPlace[] }, input);
+    let parsed: { places?: RawPlace[] };
+    try {
+      parsed = JSON.parse(content) as { places?: RawPlace[] };
+    } catch {
+      throw new GroqError(0, true);
+    }
+    return this.toRecommendations(parsed, input);
   }
 
   /**
@@ -188,7 +222,7 @@ export class GroqGenerator implements ItineraryGenerator {
 }
 
 export function createGenerator(): ItineraryGenerator | null {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = readEnv("GROQ_API_KEY");
   if (!apiKey) return null;
-  return new GroqGenerator(apiKey, process.env.GROQ_MODEL ?? "openai/gpt-oss-120b");
+  return new GroqGenerator(apiKey, readEnv("GROQ_MODEL") ?? "openai/gpt-oss-120b");
 }
