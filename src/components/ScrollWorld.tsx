@@ -131,23 +131,40 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
     };
     canvas.addEventListener("webglcontextlost", onContextLost);
 
-    import("./scroll-world/world")
-      .then(({ createWorld }) => {
-        if (disposed) return;
-        world = createWorld(canvas, CHAPTERS);
-        if (!world) {
-          setStatus("fallback");
-          return;
-        }
-        if (process.env.NODE_ENV !== "production") window.__sthaniyaWorld = world;
-        world.resize(window.innerWidth, window.innerHeight);
-        const p = exact();
-        render = reduced.matches ? Math.round(p) : p;
-        world.update(render, 0);
-        setStatus("ready");
-        start();
-      })
-      .catch(() => setStatus("fallback"));
+    // The hero must be typeable before anything else: the world waits for an idle moment, then
+    // builds in slices and compiles its shaders before its first frame (see world.ts).
+    const whenIdle = (task: () => void) => {
+      const idle = (window as Window & { requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => number })
+        .requestIdleCallback;
+      if (idle) idle(task, { timeout: 2000 });
+      else window.setTimeout(task, 600);
+    };
+
+    whenIdle(() => {
+      if (disposed) return;
+      import("./scroll-world/world")
+        .then(async ({ createWorld }) => {
+          if (disposed) return;
+          const built = await createWorld(canvas, CHAPTERS);
+          if (disposed) {
+            built?.dispose();
+            return;
+          }
+          if (!built) {
+            setStatus("fallback");
+            return;
+          }
+          world = built;
+          if (process.env.NODE_ENV !== "production") window.__sthaniyaWorld = built;
+          built.resize(window.innerWidth, window.innerHeight);
+          const p = exact();
+          render = reduced.matches ? Math.round(p) : p;
+          built.update(render, 0);
+          setStatus("ready");
+          start();
+        })
+        .catch(() => setStatus("fallback"));
+    });
 
     return () => {
       disposed = true;

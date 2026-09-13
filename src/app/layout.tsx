@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import { CurrencyProvider } from "@/components/currency/CurrencyProvider";
+import { AuthProvider } from "@/components/AuthProvider";
+import { PwaSupport } from "@/components/PwaSupport";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -15,6 +18,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Sthānīya — travel like a local",
   description:
     "Tell us where you're going, how long you have and what you're into. Get a short, honest plan instead of a top-10 list.",
@@ -31,7 +35,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${fraunces.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <CurrencyProvider>{children}</CurrencyProvider>
+        <AuthProvider>
+          <CurrencyProvider>{children}</CurrencyProvider>
+        </AuthProvider>
+        <PwaSupport />
       </body>
     </html>
   );

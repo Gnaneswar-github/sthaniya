@@ -28,6 +28,8 @@ export type ParsedIntent = {
   pace: { value: Pace; matched: string } | null;
   /** Phrases we recognised as dislikes — shown back so nothing looks silently ignored. */
   avoid: string[];
+  /** Two or more cities in order, when the sentence describes a route. */
+  legs: { destination: string; days: number; matched: string }[] | null;
 };
 
 function find(text: string, pattern: RegExp): RegExpMatchArray | null {
@@ -217,14 +219,53 @@ function parsePace(raw: string): ParsedIntent["pace"] {
   return null;
 }
 
+/* ------------------------------------------------------------- multi-city */
+
+const PLACE = "[A-Z][\\p{L}'’.-]*(?:\\s+[A-Z][\\p{L}'’.-]*){0,2}";
+const JOINER = "(?:\\s*,\\s*(?:and\\s+|then\\s+)?|\\s+and\\s+(?:then\\s+)?|\\s+then\\s+|\\s*(?:→|->|&)\\s*)";
+const COUNT = "(\\d+|[Aa]n?|[Oo]ne|[Tt]wo|[Tt]hree|[Ff]our|[Ff]ive|[Ss]ix|[Ss]even|[Ee]ight|[Nn]ine|[Tt]en)";
+
+const cleanPlace = (phrase: string) => phrase.split(STOP_AFTER_PLACE)[0].trim().replace(/[.,!?]$/, "");
+
+/**
+ * "3 days in Tokyo and 2 days in Kyoto", or "a week in Lisbon, Porto and Seville" with the total
+ * split evenly. Anything it misreads is shown back as an editable route before a trip is built.
+ */
+function parseLegs(raw: string, totalDays: number | null): ParsedIntent["legs"] {
+  const explicit = [...raw.matchAll(new RegExp(`\\b${COUNT}\\s+(?:[Dd]ays?|[Nn]ights?)\\s+in\\s+(${PLACE})`, "gu"))];
+  if (explicit.length >= 2) {
+    return explicit.slice(0, 5).map((m) => ({
+      destination: cleanPlace(m[2]),
+      days: Math.min(Number(m[1]) || WORD_NUMBERS[m[1].toLowerCase()] || 1, 14),
+      matched: m[0],
+    }));
+  }
+
+  const chain = raw.match(new RegExp(`\\b(?:in|to|visiting|visit|around|between|through)\\s+(${PLACE}(?:${JOINER}${PLACE})+)`, "u"));
+  if (!chain) return null;
+  const cities = chain[1]
+    .split(new RegExp(JOINER, "u"))
+    .map(cleanPlace)
+    .filter(Boolean)
+    .slice(0, 5);
+  if (cities.length < 2) return null;
+
+  const total = Math.max(totalDays ?? cities.length * 2, cities.length);
+  const base = Math.floor(total / cities.length);
+  let extra = total - base * cities.length;
+  return cities.map((destination) => ({ destination, days: base + (extra-- > 0 ? 1 : 0), matched: chain[0] }));
+}
+
 /* ------------------------------------------------------------------ entry */
 
 export function parseIntent(raw: string): ParsedIntent {
   const text = raw.replace(/\s+/g, " ").trim();
+  const duration = parseDuration(text);
 
   return {
     destination: parseDestination(text),
-    durationDays: parseDuration(text),
+    durationDays: duration,
+    legs: parseLegs(text, duration?.value ?? null),
     month: parseMonth(text),
     travellerType: parseParty(text),
     budgetPerDay: parseBudgetPhrase(text),

@@ -101,6 +101,17 @@ export type PriceBand = keyof typeof PRICE_BANDS;
 
 export type Coords = { lat: number; lng: number };
 
+/** What Google Maps lists for a place, fetched through Apify. Absent when not configured or not found. */
+export type PlaceDetails = {
+  rating: number | null;
+  reviews: number | null;
+  /** e.g. [{ day: "Monday", hours: "9 AM to 5 PM" }] */
+  hours: { day: string; hours: string }[];
+  priceLevel: string | null;
+  url: string | null;
+  fetchedAt: string;
+};
+
 export type Recommendation = {
   id: string;
   name: string;
@@ -119,6 +130,8 @@ export type Recommendation = {
   /** Wikidata id and "lang:Title" when the map links the place; used to find a real photo. */
   wikidata?: string;
   wikipedia?: string;
+  /** Rating, reviews and hours from Google Maps (via Apify), shown with that source. */
+  details?: PlaceDetails;
   interests: Interest[];
   /**
    * The window this place is genuinely best in ("HH:MM"), e.g. a temple at dawn.
@@ -174,6 +187,8 @@ export type TripPrefs = {
   notes: string;
   /** Learned from this traveller's own edits on this device. Optional: a first trip has none. */
   taste?: TasteProfile;
+  /** Multi-city route, in order. Present only for two or more cities; `destination` then reads "A → B". */
+  legs?: { destination: string; days: number }[];
 };
 
 export type ItineraryItem = {
@@ -189,6 +204,8 @@ export type ItineraryItem = {
 export type TripDay = {
   /** ISO date, "YYYY-MM-DD". */
   date: string;
+  /** Set on multi-city trips: the city this day is spent in. */
+  destination?: string;
   items: ItineraryItem[];
 };
 

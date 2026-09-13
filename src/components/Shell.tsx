@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AccountLink } from "./AccountLink";
 import { Wordmark } from "./Logo";
 import { CurrencySelector } from "./currency/CurrencyControls";
 
@@ -26,13 +27,15 @@ export function Nav({ overHero = false }: { overHero?: boolean }) {
         </Link>
 
         <div className="flex items-center gap-1">
-          <Link href="/#destinations" className={`rounded-lg px-3 py-2 text-sm transition ${link}`}>
-            Explore
+          <Link href="/destinations" className={`rounded-lg px-3 py-2 text-sm transition ${link}`}>
+            City guides
           </Link>
 
           <span className="mx-1.5 hidden sm:block">
             <CurrencySelector onHero={overHero} />
           </span>
+
+          <AccountLink onHero={overHero} />
 
           <Link
             href="/plan"

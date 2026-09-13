@@ -5,6 +5,9 @@ import { ItemCard } from "./ItemCard";
 import { MapLink } from "./MapLink";
 import { TripMap } from "./TripMap";
 import { WeatherGlyph } from "./WeatherGlyph";
+import { earnsCommission, staysLink, toursLink } from "@/lib/affiliates";
+import { track } from "@/lib/analytics";
+import type { Member, Vote } from "@/lib/cloud-trips";
 import { formatMoney } from "@/lib/currency/format";
 import { dayColor } from "@/lib/day-colors";
 import { dayDirectionsUrl, tripToIcs, tripToText } from "@/lib/export";
@@ -34,25 +37,51 @@ import {
   REPLACE_REASONS,
   type ReplaceReason,
 } from "@/lib/trip-engine";
-import { CATEGORIES, INTERESTS, LOCALITY_TAGS, type Recommendation, type Trip } from "@/lib/types";
+import { CATEGORIES, INTERESTS, LOCALITY_TAGS, type Category, type Recommendation, type Trip } from "@/lib/types";
 import { describeWeather, type TripWeather } from "@/lib/weather";
 
 const interestLabel = (id: string) => INTERESTS.find((i) => i.id === id)?.label ?? id;
 
+/** Places people tend to book ahead; food and cafés are walk-in. */
+const BOOKABLE: Category[] = ["sight", "museum", "outdoors", "temple"];
+
 function dayLabel(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
 }
+
+function nextDay(iso: string): string {
+  const date = new Date(`${iso}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+export type CollabProps = {
+  userId: string;
+  members: Member[];
+  votes: Vote[];
+  inviteCode: string;
+  onVote: (placeId: string, value: -1 | 0 | 1) => void;
+  saving: boolean;
+};
 
 export function TripView({
   trip,
   pool,
   onChange,
   onRestart,
+  collab,
+  onSaveToAccount,
+  accountState = "idle",
 }: {
   trip: Trip;
   pool: Recommendation[];
   onChange: (trip: Trip) => void;
   onRestart: () => void;
+  /** Present when this trip lives in an account and may be shared with others. */
+  collab?: CollabProps;
+  /** Present for a trip that isn't in an account yet. */
+  onSaveToAccount?: () => void;
+  accountState?: "idle" | "saving" | "saved" | "signin";
 }) {
   const [replacing, setReplacing] = useState<string | null>(null);
   const [adding, setAdding] = useState<number | null>(null);
@@ -81,26 +110,51 @@ export function TripView({
     return pool.filter((p) => !used.has(p.id));
   }, [trip, pool]);
 
-  /* weather — forecast when close, last year's same dates when further out */
-  const anchor = useMemo(() => trip.days.flatMap((d) => d.items).find((i) => i.place.coords)?.place.coords ?? null, [trip]);
-  const anchorKey = anchor ? `${anchor.lat.toFixed(3)},${anchor.lng.toFixed(3)}` : null;
+  /* weather — per city: forecast when close, last year's same dates when further out */
   const firstDate = trip.days[0]?.date;
   const lastDate = trip.days.at(-1)?.date;
 
-  useEffect(() => {
-    if (!anchorKey || !firstDate || !lastDate) return;
-    const [lat, lng] = anchorKey.split(",");
-    let live = true;
-    fetch(`/api/weather?lat=${lat}&lng=${lng}&start=${firstDate}&end=${lastDate}`)
-      .then((response) => (response.ok ? (response.json() as Promise<TripWeather>) : null))
-      .then((data) => {
-        if (live && data?.days) setWeather(data);
+  const weatherQueries = useMemo(() => {
+    const cityOf = (day: Trip["days"][number]) => day.destination ?? trip.prefs.destination;
+    const coordsByCity = new Map<string, { lat: number; lng: number }>();
+    const ranges = new Map<string, { start: string; end: string }>();
+    for (const day of trip.days) {
+      const city = cityOf(day);
+      const coords = day.items.find((i) => i.place.coords)?.place.coords;
+      if (coords && !coordsByCity.has(city)) coordsByCity.set(city, coords);
+      const range = ranges.get(city);
+      if (range) range.end = day.date;
+      else ranges.set(city, { start: day.date, end: day.date });
+    }
+    return [...ranges.entries()]
+      .filter(([city]) => coordsByCity.has(city))
+      .map(([city, range]) => {
+        const c = coordsByCity.get(city)!;
+        return `lat=${c.lat.toFixed(3)}&lng=${c.lng.toFixed(3)}&start=${range.start}&end=${range.end}`;
       })
-      .catch(() => undefined);
+      .join("|");
+  }, [trip]);
+
+  useEffect(() => {
+    if (!weatherQueries) return;
+    let live = true;
+    Promise.all(
+      weatherQueries.split("|").map((query) =>
+        fetch(`/api/weather?${query}`)
+          .then((response) => (response.ok ? (response.json() as Promise<TripWeather>) : null))
+          .catch(() => null),
+      ),
+    ).then((results) => {
+      if (!live) return;
+      const found = results.filter((r): r is TripWeather => Boolean(r?.days));
+      if (found.length) {
+        setWeather({ kind: found.every((r) => r.kind === "forecast") ? "forecast" : "typical", days: found.flatMap((r) => r.days) });
+      }
+    });
     return () => {
       live = false;
     };
-  }, [anchorKey, firstDate, lastDate]);
+  }, [weatherQueries]);
 
   const weatherByDate = useMemo(() => new Map((weather?.days ?? []).map((d) => [d.date, d])), [weather]);
   const rainyOutdoorDates = useMemo(
@@ -111,9 +165,26 @@ export function TripView({
     [trip, weatherByDate],
   );
 
-  function apply(result: { trip: Trip; summary: string }) {
+  /* planning together */
+  const votesByPlace = useMemo(() => {
+    const map = new Map<string, { up: number; down: number; mine: -1 | 0 | 1; names: string[] }>();
+    if (!collab) return map;
+    const names = new Map(collab.members.map((m) => [m.userId, m.name]));
+    for (const vote of collab.votes) {
+      const entry = map.get(vote.placeId) ?? { up: 0, down: 0, mine: 0 as -1 | 0 | 1, names: [] };
+      if (vote.value === 1) entry.up += 1;
+      else entry.down += 1;
+      if (vote.userId === collab.userId) entry.mine = vote.value;
+      entry.names.push(`${names.get(vote.userId) ?? "Someone"} ${vote.value === 1 ? "👍" : "👎"}`);
+      map.set(vote.placeId, entry);
+    }
+    return map;
+  }, [collab]);
+
+  function apply(result: { trip: Trip; summary: string }, event?: string) {
     onChange(result.trip);
     setFlash(result.summary);
+    if (event) track(event, { destination: trip.prefs.destination });
   }
 
   const selectOnMap = useCallback((itemId: string) => {
@@ -125,6 +196,7 @@ export function TripView({
     try {
       const encoded = await encodeTrip(trip, pool);
       const url = `${window.location.origin}/trip#t=${encoded}`;
+      track("trip_shared", { method: typeof navigator.share === "function" ? "native" : "link" });
       if (typeof navigator.share === "function") {
         await navigator.share({ title: `${trip.prefs.destination} — my trip`, url });
         return;
@@ -144,6 +216,7 @@ export function TripView({
     link.download = `${trip.prefs.destination.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-trip.ics`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    track("trip_exported", { format: "calendar" });
     setFlash("Calendar file downloaded — open it to add every stop to your calendar.");
   }
 
@@ -156,11 +229,14 @@ export function TripView({
     let at = beforeItemId ? without.findIndex((i) => i.itemId === beforeItemId) : without.length;
     if (at === -1) at = without.length;
     onChange(placeItem(trip, id, dayIndex, at));
+    track("stop_reordered", { method: "drag" });
   }
 
   const lead = stats.priced
     ? { label: "Entry costs", value: formatMoney({ amount: stats.cost, currency: stats.currency }), sub: "estimated" }
     : { label: "Days", value: `${trip.days.length}`, sub: `${dayLabel(firstDate ?? trip.prefs.startDate).split(" ")[0]} start` };
+
+  const cities = [...new Set(trip.days.map((d) => d.destination ?? trip.prefs.destination))];
 
   return (
     <div className="grid gap-8 lg:grid-cols-12">
@@ -172,22 +248,48 @@ export function TripView({
               ← Start a new trip
             </button>
             <div className="flex flex-wrap gap-2">
+              {onSaveToAccount && (
+                <button
+                  type="button"
+                  onClick={onSaveToAccount}
+                  disabled={accountState === "saving" || accountState === "saved"}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white shadow-sm transition enabled:hover:-translate-y-0.5 enabled:hover:bg-brand-bright disabled:opacity-80"
+                >
+                  <ToolIcon>
+                    <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-4Z" />
+                  </ToolIcon>
+                  {accountState === "saving"
+                    ? "Saving…"
+                    : accountState === "saved"
+                      ? "Saved to your account"
+                      : accountState === "signin"
+                        ? "Sign in to save"
+                        : "Save to my account"}
+                </button>
+              )}
               <ToolButton onClick={share} label="Share">
                 <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13" />
               </ToolButton>
-              <ToolLink href={`https://wa.me/?text=${encodeURIComponent(tripToText(trip))}`} label="WhatsApp">
+              <ToolLink href={`https://wa.me/?text=${encodeURIComponent(tripToText(trip))}`} label="WhatsApp" onClick={() => track("trip_exported", { format: "whatsapp" })}>
                 <path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.3Z" />
               </ToolLink>
               <ToolButton onClick={downloadCalendar} label="Calendar">
                 <path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4" />
               </ToolButton>
-              <ToolButton onClick={() => window.print()} label="Print">
+              <ToolButton
+                onClick={() => {
+                  track("trip_exported", { format: "print" });
+                  window.print();
+                }}
+                label="Print"
+              >
                 <path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z" />
               </ToolButton>
             </div>
           </div>
 
           <p className="text-[15px] text-ink-soft">
+            {cities.length > 1 && <span className="font-semibold text-ink">{cities.join(" → ")} · </span>}
             {dayLabel(firstDate ?? trip.prefs.startDate)} — {dayLabel(lastDate ?? trip.prefs.endDate)} ·{" "}
             {trip.prefs.interests.map(interestLabel).join(" · ")}
           </p>
@@ -200,13 +302,15 @@ export function TripView({
           </div>
         </div>
 
+        {collab && <CollabPanel collab={collab} />}
+
         {/* reshape */}
         <div className="no-print space-y-3 rounded-3xl border border-line bg-paper-raised p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Reshape the whole trip</p>
           <div className="flex flex-wrap gap-2">
-            <Transform onClick={() => apply(makeMoreLocal(trip, pool))}>Make it more local</Transform>
-            {stats.priced && <Transform onClick={() => apply(makeCheaper(trip, pool))}>Make it cheaper</Transform>}
-            <Transform onClick={() => apply(slowDown(trip))}>Slow it down</Transform>
+            <Transform onClick={() => apply(makeMoreLocal(trip, pool), "trip_made_local")}>Make it more local</Transform>
+            {stats.priced && <Transform onClick={() => apply(makeCheaper(trip, pool), "trip_made_cheaper")}>Make it cheaper</Transform>}
+            <Transform onClick={() => apply(slowDown(trip), "trip_slowed")}>Slow it down</Transform>
           </div>
           {rainyOutdoorDates.length > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#35506a]/8 px-4 py-3">
@@ -217,7 +321,7 @@ export function TripView({
               </p>
               <button
                 type="button"
-                onClick={() => apply(rainyDaySwap(trip, pool, rainyOutdoorDates))}
+                onClick={() => apply(rainyDaySwap(trip, pool, rainyOutdoorDates), "rain_swap")}
                 className="rounded-full bg-indigo px-4 py-2 text-xs font-semibold text-white transition hover:opacity-90"
               >
                 Swap in indoor stops
@@ -228,6 +332,8 @@ export function TripView({
             {flash ?? " "}
           </p>
         </div>
+
+        <BookingCard trip={trip} cities={cities} />
 
         {trip.notes.map((note) => (
           <p key={note} className="rounded-2xl border border-gold/30 bg-gold/5 px-4 py-3 text-[15px] leading-relaxed text-ink-soft">
@@ -272,14 +378,24 @@ export function TripView({
           const forecast = weatherByDate.get(day.date);
           const directions = dayDirectionsUrl(day.items);
           const color = dayColor(dayIndex);
+          const city = day.destination ?? trip.prefs.destination;
+          const previousCity = dayIndex > 0 ? (trip.days[dayIndex - 1].destination ?? trip.prefs.destination) : city;
 
           return (
             <section key={day.date} id={`day-${dayIndex}`} className="scroll-mt-32 space-y-3">
+              {cities.length > 1 && city !== previousCity && (
+                <p className="flex items-center gap-2 rounded-2xl bg-deep px-4 py-2.5 text-sm font-medium text-white">
+                  <span aria-hidden>→</span> On to {city}
+                </p>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                 <div className="flex items-baseline gap-3">
                   <span className="h-3 w-3 translate-y-[-2px] rounded-full" style={{ background: color }} aria-hidden />
                   <h3 className="font-display text-3xl text-ink">Day {dayIndex + 1}</h3>
-                  <span className="text-sm text-ink-faint">{dayLabel(day.date)}</span>
+                  <span className="text-sm text-ink-faint">
+                    {cities.length > 1 ? `${city} · ` : ""}
+                    {dayLabel(day.date)}
+                  </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {forecast && (
@@ -298,6 +414,7 @@ export function TripView({
                       href={directions}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => track("route_opened")}
                       className="no-print inline-flex items-center gap-1.5 rounded-full bg-paper-raised px-3 py-1 text-xs font-medium text-ink-soft ring-1 ring-line transition hover:text-brand hover:ring-brand"
                     >
                       <svg aria-hidden viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 20l-5-2V4l5 2 6-2 5 2v14l-5-2-6 2ZM9 6v14M15 4v14" /></svg>
@@ -341,26 +458,39 @@ export function TripView({
                     item={item}
                     stop={index + 1}
                     color={color}
+                    date={day.date}
                     dayIndex={dayIndex}
                     dayCount={trip.days.length}
                     isFirst={index === 0}
                     isLast={index === day.items.length - 1}
                     highlighted={active === item.itemId}
                     whyLine={whyItFitsLine(item.place, trip.prefs, interestLabel)}
+                    vote={collab ? (votesByPlace.get(item.place.id) ?? { up: 0, down: 0, mine: 0, names: [] }) : undefined}
+                    onVote={collab ? (value) => collab.onVote(item.place.id, value) : undefined}
+                    tours={
+                      BOOKABLE.includes(item.place.category)
+                        ? {
+                            ...toursLink(`${item.place.name}, ${item.place.destination}`),
+                            onClick: () => track("booking_clicked", { kind: "tours", category: item.place.category }),
+                          }
+                        : undefined
+                    }
                     actions={{
                       onReplace: () => setReplacing(replacing === item.itemId ? null : item.itemId),
                       onRemove: () => {
                         onChange(removeItem(trip, item.itemId));
                         setFlash(`Removed ${item.place.name}.`);
+                        track("stop_removed");
                       },
                       onMore: () => {
                         recordTaste(item.place.category, "like");
-                        apply(addSimilar(trip, pool, item.itemId));
+                        apply(addSimilar(trip, pool, item.itemId), "more_like_this");
                       },
                       onNotForMe: () => {
                         recordTaste(item.place.category, "dislike");
                         onChange(removeItem(trip, item.itemId));
                         setFlash(`Got it — fewer ${CATEGORIES[item.place.category].toLowerCase()} stops from now on.`);
+                        track("not_for_me", { category: item.place.category });
                       },
                       onShift: (direction) => onChange(shiftItem(trip, item.itemId, direction)),
                       onMoveDay: (target) => {
@@ -380,6 +510,7 @@ export function TripView({
                         onChange(replaceItem(trip, item.itemId, replacement));
                         setReplacing(null);
                         setFlash(`Swapped in ${replacement.name}.`);
+                        track("stop_replaced");
                       }}
                       onClose={() => setReplacing(null)}
                     />
@@ -413,29 +544,33 @@ export function TripView({
               {adding === dayIndex && (
                 <div className="space-y-2 rounded-3xl border border-line bg-paper-raised p-4">
                   {unused.length === 0 && (
-                    <p className="text-sm text-ink-faint">Every place we found for {trip.prefs.destination} is already in your trip.</p>
+                    <p className="text-sm text-ink-faint">Every place we found for {city} is already in your trip.</p>
                   )}
-                  {unused.slice(0, 8).map((place) => (
-                    <div key={place.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition hover:bg-paper">
-                      <span className="min-w-0">
-                        <MapLink name={place.name} near={place.destination} className="text-[15px] text-ink" />
-                        <span className="block text-xs text-ink-faint">
-                          {CATEGORIES[place.category]} · {LOCALITY_TAGS[place.tag]} · {placeLocalScore(place)} local
+                  {unused
+                    .filter((place) => cities.length === 1 || place.destination === city)
+                    .slice(0, 8)
+                    .map((place) => (
+                      <div key={place.id} className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition hover:bg-paper">
+                        <span className="min-w-0">
+                          <MapLink name={place.name} near={place.destination} className="text-[15px] text-ink" />
+                          <span className="block text-xs text-ink-faint">
+                            {CATEGORIES[place.category]} · {LOCALITY_TAGS[place.tag]} · {placeLocalScore(place)} local
+                          </span>
                         </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onChange(addPlace(trip, place, dayIndex));
-                          setAdding(null);
-                          setFlash(`Added ${place.name} to Day ${dayIndex + 1}.`);
-                        }}
-                        className="shrink-0 rounded-full border border-line px-3 py-1 text-xs font-medium text-ink-soft transition hover:border-brand hover:text-brand"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onChange(addPlace(trip, place, dayIndex));
+                            setAdding(null);
+                            setFlash(`Added ${place.name} to Day ${dayIndex + 1}.`);
+                            track("stop_added");
+                          }}
+                          className="shrink-0 rounded-full border border-line px-3 py-1 text-xs font-medium text-ink-soft transition hover:border-brand hover:text-brand"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ))}
                 </div>
               )}
             </section>
@@ -449,6 +584,103 @@ export function TripView({
         </div>
       </aside>
     </div>
+  );
+}
+
+/** Who's planning, how to bring someone in, and whether edits have reached everyone. */
+function CollabPanel({ collab }: { collab: CollabProps }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyInvite() {
+    const url = `${window.location.origin}/join/${collab.inviteCode}`;
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title: "Plan this trip with me", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2500);
+      }
+      track("invite_shared");
+    } catch {
+      // Dismissed.
+    }
+  }
+
+  return (
+    <section className="no-print flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-brand/25 bg-brand/5 p-5">
+      <div className="flex items-center gap-3">
+        <div className="flex -space-x-2">
+          {collab.members.slice(0, 5).map((member) => (
+            <span
+              key={member.userId}
+              title={`${member.name}${member.role === "owner" ? " (organiser)" : ""}`}
+              className="grid h-9 w-9 place-items-center rounded-full bg-brand text-sm font-semibold uppercase text-white ring-2 ring-paper"
+            >
+              {member.name.charAt(0)}
+            </span>
+          ))}
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-ink">
+            {collab.members.length === 1 ? "Just you so far" : `${collab.members.length} people planning`}
+          </p>
+          <p className="text-xs text-ink-faint">{collab.saving ? "Saving changes…" : "Changes and votes sync live for everyone"}</p>
+        </div>
+      </div>
+      <button type="button" onClick={copyInvite} className="rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-bright">
+        {copied ? "Invite link copied" : "Invite people to plan"}
+      </button>
+    </section>
+  );
+}
+
+/** Stays for the trip's dates, and tickets for each city. Discloses commission only when it applies. */
+function BookingCard({ trip, cities }: { trip: Trip; cities: string[] }) {
+  const firstDate = trip.days[0]?.date ?? trip.prefs.startDate;
+  const lastDate = trip.days.at(-1)?.date ?? trip.prefs.endDate;
+
+  return (
+    <section className="no-print space-y-3 rounded-3xl border border-line bg-paper-raised p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Book what you need</p>
+      <div className="flex flex-wrap gap-2">
+        {cities.map((city) => {
+          const cityDays = trip.days.filter((d) => (d.destination ?? trip.prefs.destination) === city);
+          const stays = staysLink({
+            city,
+            checkin: cityDays[0]?.date ?? firstDate,
+            checkout: nextDay(cityDays.at(-1)?.date ?? lastDate),
+            travellerType: trip.prefs.travellerType,
+          });
+          const tours = toursLink(city);
+          return (
+            <span key={city} className="flex flex-wrap gap-2">
+              <a
+                href={stays.url}
+                target="_blank"
+                rel="sponsored noopener noreferrer"
+                onClick={() => track("booking_clicked", { kind: "stays", provider: stays.provider })}
+                className="rounded-full bg-deep px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:bg-deep-2"
+              >
+                Stays in {city} · {stays.provider}
+              </a>
+              <a
+                href={tours.url}
+                target="_blank"
+                rel="sponsored noopener noreferrer"
+                onClick={() => track("booking_clicked", { kind: "tours", provider: tours.provider })}
+                className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-ink-soft transition hover:-translate-y-0.5 hover:border-brand hover:text-brand"
+              >
+                Things to do in {city} · {tours.provider}
+              </a>
+            </span>
+          );
+        })}
+      </div>
+      {earnsCommission() && (
+        <p className="text-[11px] text-ink-faint">We may earn a commission when you book through these links. It never changes what we recommend.</p>
+      )}
+    </section>
   );
 }
 
@@ -497,10 +729,7 @@ function ReplacePanel({
       )}
 
       {options.map((place) => (
-        <div
-          key={place.id}
-          className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-paper-raised p-3 transition hover:border-brand"
-        >
+        <div key={place.id} className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-paper-raised p-3 transition hover:border-brand">
           <span className="min-w-0">
             <MapLink name={place.name} near={place.destination} className="font-display text-lg text-ink" />
             <span className="block text-sm text-ink-soft">{place.vibe}</span>
@@ -581,9 +810,9 @@ function ToolButton({ children, label, onClick }: { children: React.ReactNode; l
   );
 }
 
-function ToolLink({ children, label, href }: { children: React.ReactNode; label: string; href: string }) {
+function ToolLink({ children, label, href, onClick }: { children: React.ReactNode; label: string; href: string; onClick?: () => void }) {
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={toolClass}>
+    <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={toolClass}>
       <ToolIcon>{children}</ToolIcon>
       {label}
     </a>

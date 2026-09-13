@@ -2,6 +2,7 @@
 
 import { CurrencyInput } from "./currency/CurrencyControls";
 import { DestinationSelector } from "./DestinationSelector";
+import { withLegs } from "@/lib/legs";
 import {
   DIAL_POSITIONS,
   INTERESTS,
@@ -47,22 +48,50 @@ export function Understanding({
 
   return (
     <div className="space-y-5 rounded-3xl border border-line bg-paper-raised p-5 sm:p-7">
-      <Row label="Destination" source={readFrom.destination}>
-        {prefs.destination && (
-          <p className="mb-1.5 font-display text-2xl leading-tight text-ink">{prefs.destination}</p>
-        )}
-        <DestinationSelector
-          placeholder={prefs.destination ? "Change destination" : "Search any city, country or island"}
-          onSelect={(destination) => set("destination", destination.name)}
-        />
-      </Row>
+      {prefs.legs && prefs.legs.length > 1 ? (
+        <Row label="Route" source={readFrom.destination} note={`${prefs.legs.length} cities`}>
+          <LegsEditor prefs={prefs} onChange={onChange} />
+        </Row>
+      ) : (
+        <Row label="Destination" source={readFrom.destination}>
+          {prefs.destination && (
+            <p className="mb-1.5 font-display text-2xl leading-tight text-ink">{prefs.destination}</p>
+          )}
+          <DestinationSelector
+            placeholder={prefs.destination ? "Change destination" : "Search any city, country or island"}
+            onSelect={(destination) => set("destination", destination.name)}
+          />
+          {prefs.destination && (
+            <button
+              type="button"
+              onClick={() =>
+                onChange(
+                  withLegs(prefs, [
+                    { destination: prefs.destination, days: nights },
+                    { destination: "", days: 2 },
+                  ]),
+                )
+              }
+              className="mt-2 text-xs font-semibold text-brand hover:underline"
+            >
+              + Add another city
+            </button>
+          )}
+        </Row>
+      )}
 
       <Row label="Dates" source={readFrom.startDate} note={`${nights} ${nights === 1 ? "day" : "days"}`}>
         <div className="flex items-center gap-2">
           <input
             type="date"
             value={prefs.startDate}
-            onChange={(event) => set("startDate", event.target.value)}
+            onChange={(event) =>
+              onChange(
+                prefs.legs && prefs.legs.length > 1
+                  ? withLegs({ ...prefs, startDate: event.target.value }, prefs.legs)
+                  : { ...prefs, startDate: event.target.value },
+              )
+            }
             className="flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-brand"
           />
           <span className="text-ink-faint">→</span>
@@ -70,6 +99,8 @@ export function Understanding({
             type="date"
             value={prefs.endDate}
             min={prefs.startDate}
+            disabled={Boolean(prefs.legs && prefs.legs.length > 1)}
+            title={prefs.legs && prefs.legs.length > 1 ? "Set by the days in each city" : undefined}
             onChange={(event) => set("endDate", event.target.value)}
             className="flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-brand"
           />
@@ -133,6 +164,55 @@ export function Understanding({
             pretend it changed more than it did.
           </p>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** The route of a multi-city trip: cities in order, days in each. */
+function LegsEditor({ prefs, onChange }: { prefs: TripPrefs; onChange: (next: TripPrefs) => void }) {
+  const legs = prefs.legs ?? [];
+  const update = (next: typeof legs) => onChange(withLegs(prefs, next));
+
+  return (
+    <div className="space-y-2">
+      <ol className="space-y-2">
+        {legs.map((leg, index) => (
+          <li key={index} className="flex flex-wrap items-center gap-2 rounded-2xl bg-paper px-3 py-2.5">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand text-xs font-semibold text-white">{index + 1}</span>
+            <div className="min-w-[10rem] flex-1">
+              {leg.destination && <p className="font-display text-lg leading-tight text-ink">{leg.destination}</p>}
+              <DestinationSelector
+                placeholder={leg.destination ? "Change city" : "Choose a city"}
+                onSelect={(destination) => update(legs.map((l, i) => (i === index ? { ...l, destination: destination.name } : l)))}
+              />
+            </div>
+            <label className="flex items-center gap-1.5 text-sm text-ink-soft">
+              <input
+                type="number"
+                min={1}
+                max={14}
+                value={leg.days}
+                onChange={(event) => update(legs.map((l, i) => (i === index ? { ...l, days: Number(event.target.value) || 1 } : l)))}
+                className="w-16 rounded-xl border border-line bg-paper-raised px-2 py-1.5 text-center text-ink outline-none focus:border-brand"
+              />
+              {leg.days === 1 ? "day" : "days"}
+            </label>
+            <button
+              type="button"
+              onClick={() => update(legs.filter((_, i) => i !== index))}
+              aria-label={`Remove ${leg.destination || "this city"}`}
+              className="grid h-8 w-8 place-items-center rounded-full text-ink-faint transition hover:bg-paper-sunken hover:text-[#8f3f28]"
+            >
+              ×
+            </button>
+          </li>
+        ))}
+      </ol>
+      {legs.length < 5 && (
+        <button type="button" onClick={() => update([...legs, { destination: "", days: 2 }])} className="text-xs font-semibold text-brand hover:underline">
+          + Add another city
+        </button>
       )}
     </div>
   );

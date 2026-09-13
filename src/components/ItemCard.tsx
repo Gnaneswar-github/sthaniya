@@ -41,6 +41,10 @@ export function ItemCard({
   highlighted,
   whyLine,
   actions,
+  date,
+  vote,
+  onVote,
+  tours,
 }: {
   item: ItineraryItem;
   stop: number;
@@ -52,6 +56,13 @@ export function ItemCard({
   highlighted: boolean;
   whyLine: string;
   actions: ItemCardActions;
+  /** The day this stop is on, so Google's hours can be shown for that weekday. */
+  date: string;
+  /** Planning together: tallies for this stop and the viewer's own vote. */
+  vote?: { up: number; down: number; mine: -1 | 0 | 1; names: string[] };
+  onVote?: (value: -1 | 0 | 1) => void;
+  /** Tickets and tours, for the kinds of places people book ahead. */
+  tours?: { url: string; provider: string; onClick?: () => void };
 }) {
   const { place } = item;
   const price = PRICE_BANDS[place.priceBand];
@@ -98,6 +109,15 @@ export function ItemCard({
               <MapLink name={place.name} near={place.destination} />
             </h4>
             <p className="text-sm text-ink-faint">{place.vibe}</p>
+            {place.details?.rating != null && (
+              <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-ink-soft" title="Rating and review count from Google Maps">
+                <Stars value={place.details.rating} />
+                <span className="font-semibold text-ink">{place.details.rating.toFixed(1)}</span>
+                {place.details.reviews != null && (
+                  <span className="text-ink-faint">({place.details.reviews.toLocaleString()} Google reviews)</span>
+                )}
+              </p>
+            )}
           </div>
 
           {place.description && <p className="text-[15px] leading-relaxed text-ink-soft">{place.description}</p>}
@@ -126,15 +146,7 @@ export function ItemCard({
             <span>{placeLocalScore(place)} local</span>
           </div>
 
-          {place.openingHours && (
-            <p className="flex items-start gap-1.5 text-xs text-ink-soft" title="Opening hours as listed on OpenStreetMap">
-              <svg aria-hidden viewBox="0 0 24 24" className="mt-px h-3.5 w-3.5 shrink-0 text-brand" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-              <span className="min-w-0 break-words">
-                {place.openingHours}
-                <span className="text-ink-faint"> · listed on OpenStreetMap</span>
-              </span>
-            </p>
-          )}
+          <Hours place={place} date={date} />
 
           <div className="rounded-2xl bg-paper px-3.5 py-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Why this fits you</p>
@@ -145,6 +157,34 @@ export function ItemCard({
             <p className="text-xs italic text-gold">
               Best between {place.timeWindow.start}–{place.timeWindow.end} — move it earlier if you can.
             </p>
+          )}
+
+          {(vote || tours) && (
+            <div className="no-print flex flex-wrap items-center gap-2">
+              {vote && onVote && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-paper px-1 py-1 ring-1 ring-line" title={vote.names.length ? `Voted: ${vote.names.join(", ")}` : "No votes yet"}>
+                  <VoteButton active={vote.mine === 1} label="Keep this stop" onClick={() => onVote(vote.mine === 1 ? 0 : 1)}>
+                    <path d="M7 10v10M17 10h-4l.8-4a1.8 1.8 0 0 0-3.3-1.2L7 10v8a2 2 0 0 0 2 2h6.2a2 2 0 0 0 2-1.6l1.2-6A2 2 0 0 0 16.4 10Z" />
+                  </VoteButton>
+                  <span className="min-w-[1.25rem] text-center text-xs font-semibold tabular-nums text-ink">{vote.up - vote.down}</span>
+                  <VoteButton active={vote.mine === -1} label="Rather skip it" onClick={() => onVote(vote.mine === -1 ? 0 : -1)}>
+                    <path d="M7 10v10M17 10h-4l.8-4a1.8 1.8 0 0 0-3.3-1.2L7 10v8a2 2 0 0 0 2 2h6.2a2 2 0 0 0 2-1.6l1.2-6A2 2 0 0 0 16.4 10Z" transform="rotate(180 12 12)" />
+                  </VoteButton>
+                </span>
+              )}
+              {tours && (
+                <a
+                  href={tours.url}
+                  target="_blank"
+                  rel="sponsored noopener noreferrer"
+                  onClick={tours.onClick}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gold/10 px-3 py-1.5 text-xs font-semibold text-gold transition hover:bg-gold hover:text-white"
+                >
+                  <svg aria-hidden viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a2 2 0 0 0 0 4v5h18v-5a2 2 0 0 0 0-4V5H3ZM13 5v2M13 11v2M13 15v2" /></svg>
+                  Tickets &amp; tours
+                </a>
+              )}
+            </div>
           )}
 
           <div className="no-print flex flex-wrap items-center gap-2 pt-0.5">
@@ -187,6 +227,56 @@ export function ItemCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function Stars({ value }: { value: number }) {
+  return (
+    <span className="relative inline-block text-[13px] leading-none tracking-[1px]" aria-hidden>
+      <span className="text-line-strong">★★★★★</span>
+      <span className="absolute inset-0 overflow-hidden text-gold" style={{ width: `${(Math.max(0, Math.min(5, value)) / 5) * 100}%` }}>
+        ★★★★★
+      </span>
+    </span>
+  );
+}
+
+/** Google's hours for the trip day's weekday when we have them; otherwise OpenStreetMap's listing. */
+function Hours({ place, date }: { place: ItineraryItem["place"]; date: string }) {
+  const weekday = new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+  const google = place.details?.hours.find((h) => h.day.toLowerCase() === weekday.toLowerCase());
+  const text = google ? `${weekday}: ${google.hours}` : place.openingHours;
+  if (!text) return null;
+  const source = google ? "Google Maps" : "OpenStreetMap";
+
+  return (
+    <p className="flex items-start gap-1.5 text-xs text-ink-soft" title={`Opening hours as listed on ${source}`}>
+      <svg aria-hidden viewBox="0 0 24 24" className="mt-px h-3.5 w-3.5 shrink-0 text-brand" fill="none" stroke="currentColor" strokeWidth={2}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+      <span className="min-w-0 break-words">
+        {text}
+        <span className="text-ink-faint"> · {source}</span>
+      </span>
+    </p>
+  );
+}
+
+function VoteButton({ children, label, active, onClick }: { children: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      className={`grid h-7 w-7 place-items-center rounded-full transition ${active ? "bg-brand text-white" : "text-ink-soft hover:bg-paper-sunken hover:text-brand"}`}
+    >
+      <svg aria-hidden viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        {children}
+      </svg>
+    </button>
   );
 }
 

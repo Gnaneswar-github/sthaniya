@@ -3,23 +3,30 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "./AuthProvider";
 import { PageHero } from "./PageHero";
 import { PlaceArt } from "./PlaceArt";
 import { TripView } from "./TripView";
 import { Understanding } from "./Understanding";
 import { useCurrency } from "./currency/CurrencyProvider";
+import { track } from "@/lib/analytics";
+import { createCloudTrip } from "@/lib/cloud-trips";
 import { destinationByName, extractFor } from "@/lib/destinations/curation";
 import type { DraftMeta, GenerateEvent } from "@/lib/generate-events";
+import { legDates, mergeLegTrips, withLegs } from "@/lib/legs";
 import { parseIntent, type ParsedIntent } from "@/lib/parse-intent";
 import { readTaste } from "@/lib/taste";
 import { buildTrip, usedPlaceIds } from "@/lib/trip-engine";
 import { clearTrip, loadTrip, saveTrip } from "@/lib/trip-storage";
-import { CATEGORIES, type Photo, type Recommendation, type Trip, type TripPrefs } from "@/lib/types";
+import { CATEGORIES, type Photo, type PlaceDetails, type Recommendation, type Trip, type TripPrefs } from "@/lib/types";
 
 type Stage = {
   step: "locating" | "mapping" | "choosing" | "retrying";
   destination?: string;
   candidates?: number;
+  /** "City 2 of 3" on multi-city trips. */
+  label?: string;
 };
 
 /**
@@ -36,7 +43,7 @@ function toPrefs(intent: ParsedIntent, raw: string, displayCurrency: string): Tr
   const end = new Date(start);
   end.setUTCDate(start.getUTCDate() + Math.max(0, days - 1));
 
-  return {
+  const base: TripPrefs = {
     destination: intent.destination?.value ?? "",
     startDate: start.toISOString().slice(0, 10),
     endDate: end.toISOString().slice(0, 10),
@@ -48,6 +55,8 @@ function toPrefs(intent: ParsedIntent, raw: string, displayCurrency: string): Tr
     budgetCurrency: intent.budgetPerDay?.currency ?? displayCurrency,
     notes: raw,
   };
+
+  return intent.legs ? withLegs(base, intent.legs.map(({ destination, days: d }) => ({ destination, days: d }))) : base;
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -86,11 +95,16 @@ async function readDraftStream(prefs: TripPrefs, onEvent: (event: GenerateEvent)
   }
 }
 
-const withPhotos = (places: Recommendation[], photos: Record<string, Photo>) =>
-  places.map((p) => (photos[p.id] && !p.photo ? { ...p, photo: photos[p.id] } : p));
+/** Applies a change to every copy of a place — in the pool and in the trip's days. */
+const patchTrip = (trip: Trip | null, update: (place: Recommendation) => Recommendation): Trip | null =>
+  trip
+    ? { ...trip, days: trip.days.map((day) => ({ ...day, items: day.items.map((item) => ({ ...item, place: update(item.place) })) })) }
+    : trip;
 
 export function PlanFlow({ query }: { query: string }) {
   const { currency } = useCurrency();
+  const { user, available: accountsAvailable } = useAuth();
+  const router = useRouter();
   const intent = useMemo(() => parseIntent(query), [query]);
   const [prefs, setPrefs] = useState<TripPrefs>(() => toPrefs(intent, query, currency));
   const [trip, setTrip] = useState<Trip | null>(null);
@@ -100,9 +114,10 @@ export function PlanFlow({ query }: { query: string }) {
   const [live, setLive] = useState<Recommendation[]>([]);
   const [drafted, setDrafted] = useState<DraftMeta | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [accountState, setAccountState] = useState<"idle" | "saving" | "saved" | "signin">("idle");
 
   const readFrom = {
-    destination: intent.destination?.matched,
+    destination: intent.legs ? intent.legs.map((l) => l.matched).join(" · ") : intent.destination?.matched,
     startDate: intent.month ? `${intent.month.matched} · ${intent.durationDays?.matched ?? ""}`.trim() : intent.durationDays?.matched,
     travellerType: intent.travellerType?.matched,
     interests: intent.interests[0]?.matched,
@@ -130,23 +145,37 @@ export function PlanFlow({ query }: { query: string }) {
       if (!response.ok) return;
       const { photos } = (await response.json()) as { photos: Record<string, Photo> };
       if (Object.keys(photos).length === 0) return;
-
-      setPool((existing) => withPhotos(existing, photos));
-      setTrip((existing) =>
-        existing
-          ? {
-              ...existing,
-              days: existing.days.map((day) => ({
-                ...day,
-                items: day.items.map((item) =>
-                  photos[item.place.id] && !item.place.photo ? { ...item, place: { ...item.place, photo: photos[item.place.id] } } : item,
-                ),
-              })),
-            }
-          : existing,
-      );
+      const update = (place: Recommendation) => (photos[place.id] && !place.photo ? { ...place, photo: photos[place.id] } : place);
+      setPool((existing) => existing.map(update));
+      setTrip((existing) => patchTrip(existing, update));
     } catch {
       // Photos are a nicety; the generated artwork stays in place.
+    }
+  }, []);
+
+  /** Google ratings and hours, when Apify is configured. Silent otherwise. */
+  const attachDetails = useCallback(async (current: Trip) => {
+    const stops = current.days
+      .flatMap((d) => d.items.map((i) => i.place))
+      .filter((p) => !p.details)
+      .slice(0, 12)
+      .map((p) => ({ id: p.id, name: p.name, destination: p.destination, coords: p.coords }));
+    if (stops.length === 0) return;
+
+    try {
+      const response = await fetch("/api/place-details", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ places: stops }),
+      });
+      if (!response.ok) return;
+      const { configured, details } = (await response.json()) as { configured: boolean; details: Record<string, PlaceDetails> };
+      if (!configured || Object.keys(details).length === 0) return;
+      const update = (place: Recommendation) => (details[place.id] ? { ...place, details: details[place.id] } : place);
+      setPool((existing) => existing.map(update));
+      setTrip((existing) => patchTrip(existing, update));
+    } catch {
+      // Ratings are a nicety too.
     }
   }, []);
 
@@ -163,28 +192,74 @@ export function PlanFlow({ query }: { query: string }) {
       setPrefs(stored.trip.prefs);
       setDrafted(stored.meta);
       void attachPhotos(stored.trip, stored.pool);
+      void attachDetails(stored.trip);
     });
     return () => {
       cancelled = true;
     };
-  }, [query, attachPhotos]);
+  }, [query, attachPhotos, attachDetails]);
 
   // Every change — edits, arriving photos — is kept on this device.
   useEffect(() => {
     if (trip) saveTrip({ trip, pool, meta: drafted });
   }, [trip, pool, drafted]);
 
-  function finish(places: Recommendation[], meta: DraftMeta | null) {
-    const built = buildTrip(places, { ...prefs, taste: readTaste() });
+  function commit(built: Trip, places: Recommendation[], meta: DraftMeta | null) {
     setPool(places);
     setTrip(built);
     setDrafted(meta);
+    setAccountState("idle");
+    track("trip_built", {
+      days: built.days.length,
+      stops: built.days.flatMap((d) => d.items).length,
+      cities: new Set(built.days.map((d) => d.destination ?? built.prefs.destination)).size,
+      drafted: meta !== null,
+    });
     void attachPhotos(built, places);
+    void attachDetails(built);
+  }
+
+  /** Places for one destination: hand-checked ones if we have them, otherwise drafted live. */
+  async function placesFor(legPrefs: TripPrefs, label?: string) {
+    const verifiedResponse = await fetch(`/api/places?destination=${encodeURIComponent(legPrefs.destination)}`);
+    const verified = verifiedResponse.ok ? ((await verifiedResponse.json()) as { places: Recommendation[] }).places : [];
+    if (verified.length > 0) {
+      setLive((current) => [...current, ...verified.slice(0, 6)]);
+      return { places: verified, meta: null as DraftMeta | null, error: null as string | null };
+    }
+
+    setStage({ step: "locating", destination: legPrefs.destination, label });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const run = { places: [] as Recommendation[], meta: null as DraftMeta | null, failure: null as { error: string; retryable: boolean } | null };
+
+      await readDraftStream({ ...legPrefs, taste: readTaste() }, (event) => {
+        if (event.type === "stage") {
+          setStage({ step: event.stage, destination: event.destination ?? legPrefs.destination, candidates: event.candidates, label });
+        } else if (event.type === "place") {
+          run.places.push(event.place);
+          setLive((current) => [...current, event.place]);
+        } else if (event.type === "done") {
+          run.meta = event.meta;
+        } else {
+          run.failure = event;
+        }
+      });
+
+      if (run.places.length > 0) return { places: run.places, meta: run.meta, error: null };
+      if (run.failure?.retryable && attempt === 0) {
+        setStage((current) => ({ ...(current ?? {}), step: "retrying", label }));
+        await wait(4000);
+        continue;
+      }
+      return { places: [], meta: null, error: run.failure?.error ?? `We couldn't put together a trip for ${legPrefs.destination}.` };
+    }
+    return { places: [], meta: null, error: `We couldn't put together a trip for ${legPrefs.destination}.` };
   }
 
   async function build() {
-    if (!prefs.destination.trim()) {
-      setError("Tell us where you're going and we'll take it from there.");
+    const route = prefs.legs && prefs.legs.length > 1 ? legDates(prefs) : null;
+    if (route ? route.some((leg) => !leg.destination.trim()) : !prefs.destination.trim()) {
+      setError(route ? "Choose a city for every stop on the route." : "Tell us where you're going and we'll take it from there.");
       return;
     }
     setBusy(true);
@@ -193,48 +268,66 @@ export function PlanFlow({ query }: { query: string }) {
     setLive([]);
 
     try {
-      // Hand-checked places first — they're better, and checking costs nothing.
-      const verifiedResponse = await fetch(`/api/places?destination=${encodeURIComponent(prefs.destination)}`);
-      const verified = verifiedResponse.ok ? ((await verifiedResponse.json()) as { places: Recommendation[] }).places : [];
-      if (verified.length > 0) {
-        finish(verified, null);
-        return;
-      }
-
-      setStage({ step: "locating", destination: prefs.destination });
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const run = { places: [] as Recommendation[], meta: null as DraftMeta | null, failure: null as { error: string; retryable: boolean } | null };
-
-        await readDraftStream({ ...prefs, taste: readTaste() }, (event) => {
-          if (event.type === "stage") {
-            setStage({ step: event.stage, destination: event.destination ?? prefs.destination, candidates: event.candidates });
-          } else if (event.type === "place") {
-            run.places.push(event.place);
-            setLive([...run.places]);
-          } else if (event.type === "done") {
-            run.meta = event.meta;
-          } else {
-            run.failure = event;
-          }
-        });
-
-        if (run.places.length > 0) {
-          finish(run.places, run.meta);
+      if (!route) {
+        const result = await placesFor(prefs);
+        if (result.places.length === 0) {
+          setError(result.error);
+          track("trip_draft_failed");
           return;
         }
-        if (run.failure?.retryable && attempt === 0) {
-          setStage((current) => ({ ...(current ?? {}), step: "retrying" }));
-          await wait(4000);
-          continue;
-        }
-        setError(run.failure?.error ?? `We couldn't put together a trip for ${prefs.destination}.`);
+        commit(buildTrip(result.places, { ...prefs, taste: readTaste() }), result.places, result.meta);
         return;
       }
+
+      const parts: { destination: string; trip: Trip }[] = [];
+      const everything: Recommendation[] = [];
+      const missed: string[] = [];
+      let meta: DraftMeta | null = null;
+
+      for (const [index, leg] of route.entries()) {
+        const legPrefs: TripPrefs = { ...prefs, destination: leg.destination, startDate: leg.startDate, endDate: leg.endDate, legs: undefined };
+        const result = await placesFor(legPrefs, `City ${index + 1} of ${route.length}`);
+        if (result.places.length === 0) missed.push(leg.destination);
+        parts.push({ destination: leg.destination, trip: buildTrip(result.places, { ...legPrefs, taste: readTaste() }) });
+        everything.push(...result.places);
+        meta ??= result.meta;
+      }
+
+      if (everything.length === 0) {
+        setError("We couldn't put this route together just now. Try again in a moment?");
+        track("trip_draft_failed", { cities: route.length });
+        return;
+      }
+
+      const merged = mergeLegTrips(prefs, parts);
+      if (missed.length > 0) {
+        merged.notes.unshift(`${missed.join(" and ")} ${missed.length === 1 ? "is" : "are"} left as open days to explore — try again later for suggestions there.`);
+      }
+      commit(merged, everything, meta);
     } catch {
       setError("Something went wrong building the trip. Try again?");
     } finally {
       setBusy(false);
       setStage(null);
+    }
+  }
+
+  async function saveToAccount() {
+    if (!trip) return;
+    if (!user) {
+      setAccountState("signin");
+      router.push(`/account?next=${encodeURIComponent("/plan")}`);
+      return;
+    }
+    setAccountState("saving");
+    try {
+      const id = await createCloudTrip({ trip, pool, meta: drafted });
+      track("trip_saved");
+      setAccountState("saved");
+      router.push(`/trips/${id}`);
+    } catch {
+      setAccountState("idle");
+      setError("We couldn't save this trip to your account just now. It's still saved on this device.");
     }
   }
 
@@ -259,7 +352,15 @@ export function PlanFlow({ query }: { query: string }) {
           subtitle={`${nights} ${nights === 1 ? "day" : "days"}, ${trip.days.flatMap((d) => d.items).length} stops — and every one of them is yours to change.`}
         />
         <main className="mx-auto w-full max-w-6xl flex-1 space-y-5 px-5 py-8">
-          <TripView trip={trip} pool={pool} onChange={setTrip} onRestart={discard} />
+          {error && <p className="rounded-2xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm text-ink-soft">{error}</p>}
+          <TripView
+            trip={trip}
+            pool={pool}
+            onChange={setTrip}
+            onRestart={discard}
+            onSaveToAccount={accountsAvailable ? saveToAccount : undefined}
+            accountState={accountState}
+          />
           {drafted && <SourceCredit meta={drafted} />}
         </main>
       </>
@@ -296,7 +397,7 @@ export function PlanFlow({ query }: { query: string }) {
             disabled={busy}
             className="w-full rounded-full bg-brand px-5 py-4 font-semibold text-white shadow-[0_18px_40px_-20px_rgba(21,121,90,0.8)] transition enabled:hover:-translate-y-0.5 enabled:hover:bg-brand-bright disabled:opacity-60"
           >
-            {busy ? "Building your trip…" : "Build my trip"}
+            {busy ? "Building your trip…" : prefs.legs && prefs.legs.length > 1 ? `Build my ${prefs.legs.length}-city trip` : "Build my trip"}
           </button>
         )}
       </main>
@@ -318,9 +419,12 @@ function DraftingProgress({ stage, places, destination }: { stage: Stage; places
 
   return (
     <section aria-live="polite" className="rise overflow-hidden rounded-3xl border border-line bg-paper-raised shadow-[0_24px_60px_-40px_rgba(13,47,66,0.5)]">
+      {stage.label && (
+        <p className="border-b border-line bg-deep px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold-bright">{stage.label}</p>
+      )}
       <ol className="grid grid-cols-3 border-b border-line">
         {steps.map((step, index) => {
-          const done = index < current || (index === current && places.length > 0 && index === 2);
+          const done = index < current;
           const activeStep = index === current;
           return (
             <li key={step.id} className={`flex items-center gap-2 px-3 py-3 text-xs sm:px-4 ${activeStep ? "text-ink" : done ? "text-brand" : "text-ink-faint"}`}>
@@ -341,14 +445,14 @@ function DraftingProgress({ stage, places, destination }: { stage: Stage; places
         <p className="border-b border-line bg-gold/5 px-4 py-2.5 text-xs text-ink-soft">The drafter is busy — trying again in a moment…</p>
       )}
 
-      <ul className="divide-y divide-line">
+      <ul className="max-h-[28rem] divide-y divide-line overflow-y-auto">
         {places.map((place) => (
           <li key={place.id} className="flex animate-[fade-up_0.45s_ease_both] items-center gap-3 px-4 py-3">
             <PlaceArt name={place.name} category={place.category} glyphSize={48} className="h-12 w-12 shrink-0 rounded-xl" />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-display text-lg leading-tight text-ink">{place.name}</span>
               <span className="block truncate text-xs text-ink-faint">
-                {CATEGORIES[place.category]} · {place.vibe}
+                {place.destination} · {CATEGORIES[place.category]} · {place.vibe}
               </span>
             </span>
           </li>

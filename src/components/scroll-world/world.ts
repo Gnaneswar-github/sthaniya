@@ -144,7 +144,43 @@ void main() {
 
 /* -------------------------------------------------------------------- world */
 
-export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapter[]): WorldHandle | null {
+/** Hands control back to the browser between build steps, so input and paint are never starved. */
+function yieldToMain(): Promise<void> {
+  const scheduler = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler;
+  if (scheduler?.yield) return scheduler.yield();
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** Nearby-point lookups in near-constant time, so placing hundreds of props doesn't scan them all. */
+function pointGrid(cell: number) {
+  const cells = new Map<string, { x: number; z: number }[]>();
+  const key = (cx: number, cz: number) => `${cx},${cz}`;
+  return {
+    add(x: number, z: number) {
+      const k = key(Math.floor(x / cell), Math.floor(z / cell));
+      const list = cells.get(k);
+      if (list) list.push({ x, z });
+      else cells.set(k, [{ x, z }]);
+    },
+    near(x: number, z: number, radius: number) {
+      const reach = Math.ceil(radius / cell);
+      const cx = Math.floor(x / cell);
+      const cz = Math.floor(z / cell);
+      for (let i = -reach; i <= reach; i++) {
+        for (let j = -reach; j <= reach; j++) {
+          if (cells.get(key(cx + i, cz + j))?.some((p) => Math.hypot(p.x - x, p.z - z) < radius)) return true;
+        }
+      }
+      return false;
+    },
+  };
+}
+
+/**
+ * Built in slices with a yield between each, then shaders compiled before the first frame. The
+ * previous one-shot build measured a 1.1-second main-thread freeze on the production homepage.
+ */
+export async function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapter[]): Promise<WorldHandle | null> {
   if (chapters.length < 2) return null;
 
   let renderer: THREE.WebGLRenderer;
@@ -215,6 +251,8 @@ export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapte
   skyGroup.add(new THREE.Points(starGeometry, starMaterial));
   scene.add(skyGroup);
 
+  await yieldToMain();
+
   /* lights ---------------------------------------------------------------- */
   const hemi = new THREE.HemisphereLight(0xffffff, 0x2a2418, 1);
   const key = new THREE.DirectionalLight(0xffffff, 1);
@@ -238,6 +276,8 @@ export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapte
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000, 160, 160), seaMaterial);
   sea.rotation.x = -Math.PI / 2;
   scene.add(sea);
+
+  await yieldToMain();
 
   /* island ---------------------------------------------------------------- */
   const terrainGeometry = new THREE.PlaneGeometry(ISLAND_RADIUS * 2.4, ISLAND_RADIUS * 2.4, 140, 140);
@@ -269,9 +309,12 @@ export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapte
     ),
   );
 
+  await yieldToMain();
+
   /* town ------------------------------------------------------------------ */
   type House = { x: number; y: number; z: number; w: number; h: number; d: number; rot: number };
   const houses: House[] = [];
+  const houseGrid = pointGrid(8);
   for (let guard = 0; houses.length < 150 && guard < 5000; guard++) {
     const a = (rand() * 2 - 1) * 1.25;
     const rr = 30 + rand() * 98;
@@ -282,8 +325,9 @@ export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapte
     const slope =
       Math.abs(heightAt(x + 3, z) - heightAt(x - 3, z)) + Math.abs(heightAt(x, z + 3) - heightAt(x, z - 3));
     if (slope > 9) continue;
-    if (houses.some((house) => Math.hypot(house.x - x, house.z - z) < 7.5)) continue;
+    if (houseGrid.near(x, z, 7.5)) continue;
     houses.push({ x, y, z, w: 4 + rand() * 3, h: 3.2 + rand() * 3.5, d: 4 + rand() * 2.5, rot: a + (rand() - 0.5) * 0.3 });
+    houseGrid.add(x, z);
   }
 
   const walls = ["#f3efe6", "#efe3cc", "#e9dcc3", "#e2e8e4", "#f1e6d6"];
@@ -363,6 +407,8 @@ export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapte
     windows.setColorAt(i, slot.lit ? litColor : unlitColor);
   });
   scene.add(windows);
+
+  await yieldToMain();
 
   /* harbour and market ---------------------------------------------------- */
   const pierAngle = 0.28;
@@ -477,6 +523,8 @@ export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapte
     "centripetal",
   );
   const lanternPoints = lane.getSpacedPoints(43).map((p) => p.setY(Math.max(heightAt(p.x, p.z), 0.8)));
+  const lanternGrid = pointGrid(4);
+  lanternPoints.forEach((p) => lanternGrid.add(p.x, p.z));
   const posts = new THREE.InstancedMesh(
     new THREE.CylinderGeometry(0.1, 0.12, 2.6, 5).translate(0, 1.3, 0),
     new THREE.MeshStandardMaterial({ color: "#2b2620", roughness: 0.9 }),
@@ -538,6 +586,8 @@ export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapte
   lighthouse.add(tower, stripe, gallery, cap, lamp, beam);
   scene.add(lighthouse);
 
+  await yieldToMain();
+
   /* trees ----------------------------------------------------------------- */
   const treeSpots: { x: number; y: number; z: number; s: number; tall: boolean }[] = [];
   for (let guard = 0; treeSpots.length < 170 && guard < 6000; guard++) {
@@ -547,8 +597,8 @@ export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapte
     const z = Math.cos(a) * rr;
     const y = heightAt(x, z);
     if (y < 2) continue;
-    if (houses.some((house) => Math.hypot(house.x - x, house.z - z) < 6)) continue;
-    if (lanternPoints.some((p) => Math.hypot(p.x - x, p.z - z) < 3.5)) continue;
+    if (houseGrid.near(x, z, 6)) continue;
+    if (lanternGrid.near(x, z, 3.5)) continue;
     if (Math.hypot(LIGHTHOUSE.x - x, LIGHTHOUSE.z - z) < 7) continue;
     treeSpots.push({ x, y, z, s: rand(), tall: rand() < 0.5 });
   }
@@ -617,6 +667,8 @@ export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapte
   }
   placeBirds();
   scene.add(birds);
+
+  await yieldToMain();
 
   /* chapter state --------------------------------------------------------- */
   const prepared = chapters.map((chapter) => ({
@@ -756,6 +808,15 @@ export function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapte
     });
     glow.dispose();
     renderer.dispose();
+  }
+
+  // Compile every shader before the first frame — in parallel where the browser supports it —
+  // rather than inside the first render(), which was most of the measured freeze.
+  camera.position.set(...chapters[0].camera.position);
+  try {
+    await renderer.compileAsync(scene, camera);
+  } catch {
+    // Older drivers: shaders simply compile on the first frame instead.
   }
 
   return { update, resize, dispose, renderer, canvas };
