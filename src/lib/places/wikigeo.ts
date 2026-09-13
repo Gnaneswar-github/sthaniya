@@ -50,5 +50,6 @@ export async function fetchWikiCandidates(coords: Coords, limit = 100): Promise<
       coords: { lat: hit.lat, lng: hit.lon },
       // Everything here has an article, which is the prominence signal itself.
       notable: true,
+      wikipedia: `en:${hit.title}`,
     }));
 }

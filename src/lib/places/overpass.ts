@@ -21,6 +21,9 @@ export type Candidate = {
   cuisine?: string;
   website?: string;
   openingHours?: string;
+  /** Links the map carries to Wikidata / Wikipedia — the most reliable route to a real photo. */
+  wikidata?: string;
+  wikipedia?: string;
 };
 
 const ENDPOINTS = [
@@ -90,6 +93,9 @@ async function query(endpoint: string, body: string, signal: AbortSignal): Promi
       Accept: "application/json",
       "User-Agent": "Sthaniya/0.7 (residency demo; https://github.com/Gnaneswar-github/sthaniya)",
     },
+    // Cached for a week per query. The map around a city barely changes, and this turns the
+    // slowest step of every trip — often 10–25 seconds — into a one-off per destination.
+    next: { revalidate: 604_800 },
     signal,
   });
   if (!response.ok) throw new Error(`Overpass ${response.status}`);
@@ -181,6 +187,8 @@ export async function fetchCandidates(coords: Coords, limit = 90): Promise<Candi
             cuisine: tags.cuisine,
             website: tags.website,
             openingHours: tags.opening_hours,
+            wikidata: tags.wikidata,
+            wikipedia: tags.wikipedia,
           });
         }
 

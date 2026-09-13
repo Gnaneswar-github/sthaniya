@@ -10,7 +10,13 @@ export interface ItineraryGenerator {
   readonly name: string;
   readonly model: string;
   generate(input: GenerationInput): Promise<GenerationResult>;
+  /** Yields each validated place as soon as the model finishes writing it. */
+  stream(input: GenerationInput): AsyncGenerator<GeneratorEvent>;
 }
+
+export type GeneratorEvent =
+  | { type: "place"; place: Recommendation }
+  | { type: "done"; rejected: number; model: string };
 
 export type GenerationInput = {
   destination: string;

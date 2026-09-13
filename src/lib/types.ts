@@ -56,6 +56,17 @@ export type Photo = {
   url: string;
   credit: string;
   sourceUrl: string;
+  /** True when the photo was taken close by rather than confirmed to show the place itself. */
+  nearby?: boolean;
+};
+
+/**
+ * What a traveller has shown they like, learned only from their own edits ("More like this",
+ * "Not for me") and kept on their device. Counts per category, capped.
+ */
+export type TasteProfile = {
+  likes: Partial<Record<Category, number>>;
+  dislikes: Partial<Record<Category, number>>;
 };
 
 export const CATEGORIES = {
@@ -103,6 +114,11 @@ export type Recommendation = {
   durationMinutes: number;
   coords?: Coords;
   photo?: Photo;
+  /** OpenStreetMap `opening_hours`, shown verbatim with its source — never inferred. */
+  openingHours?: string;
+  /** Wikidata id and "lang:Title" when the map links the place; used to find a real photo. */
+  wikidata?: string;
+  wikipedia?: string;
   interests: Interest[];
   /**
    * The window this place is genuinely best in ("HH:MM"), e.g. a temple at dawn.
@@ -156,6 +172,8 @@ export type TripPrefs = {
   budgetCurrency: string;
   /** The original sentence. Richer signal than any checkbox, so it is never silently dropped. */
   notes: string;
+  /** Learned from this traveller's own edits on this device. Optional: a first trip has none. */
+  taste?: TasteProfile;
 };
 
 export type ItineraryItem = {

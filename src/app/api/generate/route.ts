@@ -1,24 +1,23 @@
 import { createGenerator, GroqError } from "@/lib/ai/groq";
 import { destinationService } from "@/lib/destinations/service";
+import type { GenerateEvent } from "@/lib/generate-events";
 import { fetchGroundedCandidates } from "@/lib/places/overpass";
 import { PACES, type TripPrefs } from "@/lib/types";
 
 /**
- * Builds a place set for any destination on earth:
+ * Builds a place set for any destination on earth, streamed as it happens:
  *
- *   resolve the destination  → OpenStreetMap
- *   retrieve real candidates → OpenStreetMap (Overpass)
- *   select, sequence, write  → Groq
- *   validate against candidates → here
+ *   resolve the destination     → geocoders
+ *   retrieve real candidates    → OpenStreetMap (cached a week) or Wikipedia
+ *   select, sequence, write     → Groq, streamed place by place
+ *   validate against candidates → before anything is sent
  *
- * The model never supplies a place name. It chooses among places that demonstrably exist.
+ * The response is NDJSON — one event per line — so the page can show progress and the first
+ * stops within seconds instead of a spinner for the whole trip.
  */
 
-/**
- * Map retrieval plus a model call can take most of a minute when Overpass is busy. The
- * platform default would cut the request off mid-draft, which is worse than waiting.
- */
 export const maxDuration = 120;
+
 
 /** Seasons differ by hemisphere; a December trip is not winter everywhere. */
 function seasonFor(isoDate: string, lat: number | null): string {
@@ -32,7 +31,6 @@ function seasonFor(isoDate: string, lat: number | null): string {
   if (lat >= -23.5 && lat <= 23.5) {
     return month >= 4 && month <= 9 ? "tropical wet season" : "tropical dry season";
   }
-
   if (lat < 0) {
     const flipped: Record<string, string> = { winter: "summer", summer: "winter", spring: "autumn", autumn: "spring" };
     return flipped[season] ?? season;
@@ -40,98 +38,113 @@ function seasonFor(isoDate: string, lat: number | null): string {
   return season;
 }
 
+// Wikipedia geosearch returns articles about the city and its districts too; an area is not a
+// place to go. Same class of mistake: a Tbilisi draft once offered a metro station as a stop.
+const ADMIN_AREA = /\b(district|province|region|municipality|department|prefecture|governorate|oblast|county|metropolitan area|commune|canton)$/i;
+const TRANSIT = /\((?:[^)]*\b)?(metro|subway|underground|tram|railway|mrt|lrt)\b[^)]*\)|\b(station|airport|bus terminal|interchange)\b/i;
+
 export async function POST(request: Request) {
   const generator = createGenerator();
   if (!generator) {
-    return Response.json(
-      { error: "Itinerary generation is not configured.", places: [] },
-      { status: 503 },
-    );
+    return Response.json({ error: "Itinerary generation is not configured." }, { status: 503 });
   }
 
   const prefs = (await request.json().catch(() => null)) as TripPrefs | null;
   if (!prefs?.destination?.trim()) {
-    return Response.json({ error: "A destination is required.", places: [] }, { status: 400 });
+    return Response.json({ error: "A destination is required." }, { status: 400 });
   }
 
-  try {
-    const { results } = await destinationService.search(prefs.destination, 1);
-    const place = results[0];
-    if (!place?.coords) {
-      return Response.json(
-        { error: `We couldn't find ${prefs.destination} on the map.`, places: [] },
-        { status: 404 },
-      );
-    }
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: GenerateEvent) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
 
-    const grounded = await fetchGroundedCandidates(place.coords);
-    // Sixty is plenty to choose a few days from, and keeps one draft well inside the
-    // per-minute token allowance — ninety candidates alone ate half of it.
-    // Wikipedia geosearch returns articles about the city and its districts too, and a
-    // Cusco draft listed "Cusco" and "Cusco District" as stops. An area is not a place to go.
-    const destinationKey = place.name.toLowerCase();
-    const ADMIN_AREA = /\b(district|province|region|municipality|department|prefecture|governorate|oblast|county|metropolitan area|commune|canton)$/i;
-    // Same class of mistake: a Tbilisi draft offered a metro station as a stop.
-    const TRANSIT = /\((?:[^)]*\b)?(metro|subway|underground|tram|railway|mrt|lrt)\b[^)]*\)|\b(station|airport|bus terminal|interchange)\b/i;
-    const candidates = grounded.candidates
-      .filter(
-        (c) =>
-          c.name.toLowerCase() !== destinationKey &&
-          !ADMIN_AREA.test(c.name.trim()) &&
-          !TRANSIT.test(c.name),
-      )
-      .slice(0, 60);
-    const { source } = grounded;
-    if (candidates.length === 0) {
-      return Response.json(
-        {
-          error: `OpenStreetMap has very little mapped around ${place.name}, so there's nothing solid to build from.`,
-          places: [],
-        },
-        { status: 422 },
-      );
-    }
+      try {
+        send({ type: "stage", stage: "locating" });
+        const { results } = await destinationService.search(prefs.destination, 1);
+        const place = results[0];
+        if (!place?.coords) {
+          send({ type: "error", error: `We couldn't find ${prefs.destination} on the map. Try the city's full name?`, retryable: false });
+          return;
+        }
 
-    const days = Math.max(
-      1,
-      Math.round((Date.parse(prefs.endDate) - Date.parse(prefs.startDate)) / 86_400_000) + 1,
-    );
-    const perDay = PACES.find((p) => p.id === prefs.pace)?.itemsPerDay ?? 5;
+        send({ type: "stage", stage: "mapping", destination: place.name });
+        const grounded = await fetchGroundedCandidates(place.coords);
+        const destinationKey = place.name.toLowerCase();
+        const candidates = grounded.candidates
+          .filter((c) => c.name.toLowerCase() !== destinationKey && !ADMIN_AREA.test(c.name.trim()) && !TRANSIT.test(c.name))
+          // Sixty is plenty to choose a few days from, and keeps a draft inside the token budget.
+          .slice(0, 60);
 
-    const result = await generator.generate({
-      destination: place.name,
-      countryName: place.countryName,
-      candidates,
-      prefs,
-      season: seasonFor(prefs.startDate, place.coords.lat),
-      target: Math.min(days * perDay + 3, 24),
-    });
+        if (candidates.length === 0) {
+          send({ type: "error", error: `Let's try somewhere nearby — the map is quiet around ${place.name} right now.`, retryable: true });
+          return;
+        }
 
-    return Response.json({
-      places: result.places,
-      meta: {
-        destination: place.name,
-        country: place.countryName,
-        candidatesConsidered: candidates.length,
-        // Surfaced rather than hidden: it's the signal that grounding is doing its job.
-        inventedPlacesRejected: result.rejected.length,
-        model: result.model,
-        source,
-      },
-    });
-  } catch (error) {
-    // The detail goes to the logs. Travellers get a sentence they can act on, not a runtime
-    // exception — the last one leaked a ByteString error straight into the page.
-    console.error("[generate]", prefs.destination, error);
-    const busy = error instanceof GroqError && error.retryable;
-    return Response.json(
-      {
-        error: busy
-          ? `The trip drafter is busy right now. Give it a few seconds and try ${prefs.destination} again.`
-          : `We couldn't draft a trip for ${prefs.destination} just now. Please try again in a moment.`,
-        places: [],
-      },
-      { status: 502 },
-    );
-  }
+        send({ type: "stage", stage: "choosing", destination: place.name, candidates: candidates.length });
+
+        const days = Math.max(1, Math.round((Date.parse(prefs.endDate) - Date.parse(prefs.startDate)) / 86_400_000) + 1);
+        const perDay = PACES.find((p) => p.id === prefs.pace)?.itemsPerDay ?? 5;
+
+        let count = 0;
+        let rejected = 0;
+        let model = generator.model;
+        for await (const event of generator.stream({
+          destination: place.name,
+          countryName: place.countryName,
+          candidates,
+          prefs,
+          season: seasonFor(prefs.startDate, place.coords.lat),
+          target: Math.min(days * perDay + 3, 24),
+        })) {
+          if (event.type === "place") {
+            count += 1;
+            send({ type: "place", place: event.place });
+          } else {
+            rejected = event.rejected;
+            model = event.model;
+          }
+        }
+
+        if (count === 0) {
+          send({ type: "error", error: `The trip drafter is busy right now. Give it a few seconds and try ${prefs.destination} again.`, retryable: true });
+          return;
+        }
+
+        send({
+          type: "done",
+          meta: {
+            destination: place.name,
+            country: place.countryName,
+            coords: place.coords,
+            candidatesConsidered: candidates.length,
+            inventedPlacesRejected: rejected,
+            model,
+            source: grounded.source,
+          },
+        });
+      } catch (error) {
+        // Details go to the logs. Travellers get a sentence they can act on.
+        console.error("[generate]", prefs.destination, error);
+        const busy = error instanceof GroqError && error.retryable;
+        send({
+          type: "error",
+          error: busy
+            ? `The trip drafter is busy right now. Give it a few seconds and try ${prefs.destination} again.`
+            : `We couldn't draft a trip for ${prefs.destination} just now. Please try again in a moment.`,
+          retryable: true,
+        });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(body, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-store, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

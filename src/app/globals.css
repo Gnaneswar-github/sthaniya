@@ -146,3 +146,119 @@ body {
     transform: none;
   }
 }
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Loading placeholders: a soft sweep rather than a spinner. */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, var(--paper-sunken) 25%, #f6f4ee 50%, var(--paper-sunken) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* Slot-machine reels in "Surprise me". */
+@keyframes reel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-55%);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.reel-in {
+  animation: reel-in 0.16s ease-out both;
+}
+
+/* Mood tiles: the gradient drifts while hovered. */
+@keyframes drift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+.mood-tile {
+  background-size: 180% 180%;
+}
+.mood-tile:hover {
+  animation: drift 5s ease infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer,
+  .reel-in,
+  .mood-tile:hover {
+    animation: none;
+  }
+}
+
+/* Numbered stops on the trip map. */
+.sth-marker-wrap {
+  background: none;
+  border: 0;
+}
+.sth-marker {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+  color: #fff;
+  font: 600 12px/1 var(--font-inter), system-ui, sans-serif;
+  box-shadow: 0 6px 14px -6px rgba(7, 28, 41, 0.65);
+  transition: transform 0.2s ease;
+}
+.sth-marker.is-active {
+  transform: scale(1.35);
+}
+.leaflet-container {
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+/* A printed or saved-as-PDF itinerary: just the days, no chrome. */
+@media print {
+  header,
+  footer,
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  article {
+    break-inside: avoid;
+  }
+}

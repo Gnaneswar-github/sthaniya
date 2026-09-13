@@ -2,6 +2,7 @@ import { formatMoney } from "./currency/format";
 import {
   PACES,
   PRICE_BANDS,
+  type Category,
   type DialPosition,
   type ItineraryItem,
   type LocalityTag,
@@ -61,9 +62,18 @@ export function excludedTag(dial: DialPosition): LocalityTag | null {
   return null;
 }
 
+/** Learned taste nudges ranking but never outweighs what the traveller asked for this time. */
+function tasteBoost(place: Recommendation, prefs: TripPrefs): number {
+  const taste = prefs.taste;
+  if (!taste) return 0;
+  const liked = Math.min(taste.likes[place.category] ?? 0, 3);
+  const disliked = Math.min(taste.dislikes[place.category] ?? 0, 3);
+  return liked * 15 - disliked * 30;
+}
+
 function score(place: Recommendation, prefs: TripPrefs): number {
   const hits = place.interests.filter((i) => prefs.interests.includes(i)).length;
-  return hits * 100 + dialAffinity(place.tag, prefs.dial) * 20 + (10 - place.priority);
+  return hits * 100 + dialAffinity(place.tag, prefs.dial) * 20 + (10 - place.priority) + tasteBoost(place, prefs);
 }
 
 /**
@@ -107,14 +117,23 @@ export function tripTravelMinutes(trip: Trip): number {
 
 /* ------------------------------------------------------------- scheduling */
 
-/** Lays a day out in clock time, honouring each place's preferred window where it can. */
-export function scheduleDay(items: ItineraryItem[]): ItineraryItem[] {
-  const ordered = [...items].sort(
-    (a, b) => minutes(a.place.timeWindow.start) - minutes(b.place.timeWindow.start),
-  );
+/** Earliest preferred window first — the natural order for a freshly built day. */
+function byWindow(items: ItineraryItem[]): ItineraryItem[] {
+  return [...items].sort((a, b) => minutes(a.place.timeWindow.start) - minutes(b.place.timeWindow.start));
+}
 
+function insertByWindow(items: ItineraryItem[], item: ItineraryItem): ItineraryItem[] {
+  const at = items.findIndex((i) => minutes(i.place.timeWindow.start) > minutes(item.place.timeWindow.start));
+  return at === -1 ? [...items, item] : [...items.slice(0, at), item, ...items.slice(at)];
+}
+
+/**
+ * Lays a day out in clock time in the order given, honouring each place's preferred window
+ * where it can. It never reorders: once a traveller drags a stop, that order is theirs.
+ */
+export function scheduleDay(items: ItineraryItem[]): ItineraryItem[] {
   let cursor = EARLIEST_START;
-  return ordered.map((item) => {
+  return items.map((item) => {
     const preferred = minutes(item.place.timeWindow.start);
     const windowEnd = minutes(item.place.timeWindow.end);
     const start = Math.max(cursor, preferred);
@@ -195,7 +214,7 @@ function assignToDays(places: Recommendation[], dates: string[], perDay: number)
     if (!place(rec, true)) place(rec, false);
   }
 
-  return days.map((day) => ({ ...day, items: scheduleDay(day.items) }));
+  return days.map((day) => ({ ...day, items: scheduleDay(byWindow(day.items)) }));
 }
 
 /* ------------------------------------------------------------ trip build */
@@ -262,7 +281,7 @@ export function addPlace(trip: Trip, place: Recommendation, dayIndex: number): T
   return withDays(
     trip,
     trip.days.map((day, index) =>
-      index === dayIndex ? { ...day, items: [...day.items, toItem(place)] } : day,
+      index === dayIndex ? { ...day, items: insertByWindow(day.items, toItem(place)) } : day,
     ),
   );
 }
@@ -275,7 +294,7 @@ export function moveItem(trip: Trip, itemId: string, toDayIndex: number): Trip {
     trip,
     trip.days.map((day, index) => {
       const without = day.items.filter((i) => i.itemId !== itemId);
-      return index === toDayIndex ? { ...day, items: [...without, item] } : { ...day, items: without };
+      return index === toDayIndex ? { ...day, items: insertByWindow(without, item) } : { ...day, items: without };
     }),
   );
 }
@@ -288,6 +307,30 @@ export function replaceItem(trip: Trip, itemId: string, replacement: Recommendat
       items: day.items.map((item) => (item.itemId === itemId ? toItem(replacement) : item)),
     })),
   );
+}
+
+/** Puts a stop at an exact position in a day — what drag and drop and "move to day" need. */
+export function placeItem(trip: Trip, itemId: string, toDayIndex: number, toIndex: number): Trip {
+  const item = trip.days.flatMap((d) => d.items).find((i) => i.itemId === itemId);
+  if (!item || toDayIndex < 0 || toDayIndex >= trip.days.length) return trip;
+
+  return withDays(
+    trip,
+    trip.days.map((day, index) => {
+      const without = day.items.filter((i) => i.itemId !== itemId);
+      if (index !== toDayIndex) return { ...day, items: without };
+      const at = Math.max(0, Math.min(toIndex, without.length));
+      return { ...day, items: [...without.slice(0, at), item, ...without.slice(at)] };
+    }),
+  );
+}
+
+/** Nudges a stop one place earlier or later within its own day. */
+export function shiftItem(trip: Trip, itemId: string, direction: -1 | 1): Trip {
+  const dayIndex = trip.days.findIndex((d) => d.items.some((i) => i.itemId === itemId));
+  if (dayIndex === -1) return trip;
+  const index = trip.days[dayIndex].items.findIndex((i) => i.itemId === itemId);
+  return placeItem(trip, itemId, dayIndex, index + direction);
 }
 
 /* --------------------------------------------------------- alternatives */
@@ -407,6 +450,69 @@ export function slowDown(trip: Trip): TransformResult {
       removed === 0
         ? "These days are already light — there's nothing worth cutting."
         : `Removed ${removed} ${removed === 1 ? "stop" : "stops"}, leaving more time at the ones that matter.`,
+  };
+}
+
+/** "More like this": adds the best unused place of the same kind right after the one they liked. */
+export function addSimilar(trip: Trip, pool: Recommendation[], itemId: string): TransformResult {
+  const dayIndex = trip.days.findIndex((d) => d.items.some((i) => i.itemId === itemId));
+  if (dayIndex === -1) return { trip, summary: "" };
+
+  const items = trip.days[dayIndex].items;
+  const index = items.findIndex((i) => i.itemId === itemId);
+  const liked = items[index].place;
+  const used = usedPlaceIds(trip);
+
+  const similar = pool
+    .filter((p) => !used.has(p.id) && (p.category === liked.category || p.interests.some((i) => liked.interests.includes(i))))
+    .sort(
+      (a, b) =>
+        Number(b.category === liked.category) - Number(a.category === liked.category) ||
+        score(b, trip.prefs) - score(a, trip.prefs),
+    )[0];
+
+  if (!similar) {
+    return { trip, summary: `You already have every place like ${liked.name} that we found — we'll remember you like these.` };
+  }
+
+  const next = withDays(
+    trip,
+    trip.days.map((day, i) =>
+      i === dayIndex ? { ...day, items: [...items.slice(0, index + 1), toItem(similar), ...items.slice(index + 1)] } : day,
+    ),
+  );
+  return { trip: next, summary: `Added ${similar.name}, right after ${liked.name}.` };
+}
+
+export const INDOOR_CATEGORIES: Category[] = ["museum", "cafe", "market", "temple", "food"];
+
+/** On rainy days, trades outdoor stops for the best unused indoor ones. Nothing else moves. */
+export function rainyDaySwap(trip: Trip, pool: Recommendation[], rainyDates: string[]): TransformResult {
+  const rainy = new Set(rainyDates);
+  let next = trip;
+  let swaps = 0;
+
+  for (const day of trip.days) {
+    if (!rainy.has(day.date)) continue;
+    for (const item of day.items) {
+      if (item.place.category !== "outdoors") continue;
+      const used = usedPlaceIds(next);
+      const indoor = pool
+        .filter((p) => !used.has(p.id) && INDOOR_CATEGORIES.includes(p.category))
+        .sort((a, b) => score(b, trip.prefs) - score(a, trip.prefs))[0];
+      if (indoor) {
+        next = replaceItem(next, item.itemId, indoor);
+        swaps += 1;
+      }
+    }
+  }
+
+  return {
+    trip: next,
+    summary:
+      swaps === 0
+        ? "Your rainy days are already as indoor as the places we found allow."
+        : `Swapped ${swaps} outdoor ${swaps === 1 ? "stop" : "stops"} for indoor ones on the rainy ${rainy.size === 1 ? "day" : "days"}.`,
   };
 }
 
