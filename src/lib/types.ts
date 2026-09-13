@@ -82,6 +82,8 @@ export const PRICE_BANDS = {
   low: { label: "Budget", tier: 1, approx: 120 },
   mid: { label: "Mid-range", tier: 2, approx: 400 },
   high: { label: "Splurge", tier: 3, approx: 1000 },
+  /** We have no pricing source outside the verified set, and a guess would read as fact. */
+  unknown: { label: "Price unknown", tier: 2, approx: 0 },
 } as const;
 
 export type PriceBand = keyof typeof PRICE_BANDS;

@@ -18,6 +18,8 @@ export type Evidence = { value: string; matched: string } | null;
 export type ParsedIntent = {
   destination: Evidence;
   durationDays: { value: number; matched: string } | null;
+  /** Month index 0-11 plus the year it resolves to, when the traveller named one. */
+  month: { month: number; year: number; matched: string } | null;
   travellerType: { value: TravellerType; matched: string } | null;
   /** `currency` is null when the traveller gave a number but never named a currency. */
   budgetPerDay: { value: number; currency: string | null; period: BudgetPeriod; matched: string } | null;
@@ -79,6 +81,31 @@ function parseDuration(raw: string): ParsedIntent["durationDays"] {
   }
 
   return null;
+}
+
+/* ------------------------------------------------------------------ when */
+
+const MONTHS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
+
+/**
+ * "in April" has to actually move the dates, otherwise season-aware planning is a promise
+ * the product doesn't keep. Always resolves forward — April means the next April.
+ */
+function parseMonth(raw: string): ParsedIntent["month"] {
+  const hit = find(
+    raw,
+    new RegExp(`\\b(?:in|during|early|mid|late|next)?\\s*(${MONTHS.join("|")})\\b`, "i"),
+  );
+  if (!hit) return null;
+
+  const month = MONTHS.indexOf(hit[1].toLowerCase());
+  const now = new Date();
+  const year = month >= now.getUTCMonth() ? now.getUTCFullYear() : now.getUTCFullYear() + 1;
+
+  return { month, year, matched: hit[0].trim() };
 }
 
 /* ----------------------------------------------------------------- party */
@@ -198,6 +225,7 @@ export function parseIntent(raw: string): ParsedIntent {
   return {
     destination: parseDestination(text),
     durationDays: parseDuration(text),
+    month: parseMonth(text),
     travellerType: parseParty(text),
     budgetPerDay: parseBudgetPhrase(text),
     interests: parseInterests(text),

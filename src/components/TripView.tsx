@@ -51,6 +51,9 @@ export function TripView({
       score: tripLocalScore(trip),
       cost: tripCost(trip),
       currency: tripCostCurrency(trip),
+      priced: trip.days
+        .flatMap((d) => d.items)
+        .some((item) => item.place.priceBand !== "unknown"),
       travel: tripTravelMinutes(trip),
       stops: trip.days.flatMap((d) => d.items).length,
     }),
@@ -87,10 +90,12 @@ export function TripView({
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Local score" value={`${stats.score}`} sub="out of 100" />
+          {/* Zero and unknown are different things. A drafted trip has no pricing source, and
+              showing "0" there would read as "free", which is a claim we can't make. */}
           <Stat
             label="Entry costs"
-            value={formatMoney({ amount: stats.cost, currency: stats.currency })}
-            sub="estimated"
+            value={stats.priced ? formatMoney({ amount: stats.cost, currency: stats.currency }) : "Not known"}
+            sub={stats.priced ? "estimated" : "no pricing source"}
           />
           <Stat label="Stops" value={`${stats.stops}`} sub={`${trip.days.length} days`} />
           <Stat label="Getting around" value={durationLabel(stats.travel)} sub="allowance" />

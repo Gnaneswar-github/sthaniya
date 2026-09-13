@@ -14,11 +14,14 @@ import type { Recommendation, Trip, TripPrefs } from "@/lib/types";
 
 const STORAGE_KEY = "sthaniya.trip.v3";
 
-function isoIn(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
-}
+type DraftMeta = {
+  destination: string;
+  country: string | null;
+  candidatesConsidered: number;
+  inventedPlacesRejected: number;
+  model: string;
+  source: string;
+};
 
 /**
  * Everything the parser missed falls back to a default the UI flags as a guess. The currency
@@ -26,10 +29,19 @@ function isoIn(days: number): string {
  */
 function toPrefs(intent: ParsedIntent, raw: string, displayCurrency: string): TripPrefs {
   const days = intent.durationDays?.value ?? 3;
+
+  // A named month moves the trip there; otherwise it starts tomorrow. Season-aware planning
+  // is only real if "in April" actually lands in April.
+  const start = intent.month
+    ? new Date(Date.UTC(intent.month.year, intent.month.month, 1))
+    : new Date(Date.now() + 86_400_000);
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + Math.max(0, days - 1));
+
   return {
     destination: intent.destination?.value ?? "",
-    startDate: isoIn(1),
-    endDate: isoIn(days),
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
     travellerType: intent.travellerType?.value ?? "solo",
     interests: intent.interests.length > 0 ? intent.interests.map((i) => i.value) : ["food", "local_life"],
     dial: intent.dial?.value ?? "local",
@@ -47,11 +59,15 @@ export function PlanFlow({ query }: { query: string }) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [pool, setPool] = useState<Recommendation[]>([]);
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<"idle" | "drafting">("idle");
+  const [drafted, setDrafted] = useState<DraftMeta | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const readFrom = {
     destination: intent.destination?.matched,
-    startDate: intent.durationDays?.matched,
+    startDate: intent.month
+      ? `${intent.month.matched} · ${intent.durationDays?.matched ?? ""}`.trim()
+      : intent.durationDays?.matched,
     travellerType: intent.travellerType?.matched,
     interests: intent.interests[0]?.matched,
     dial: intent.dial?.matched,
@@ -97,11 +113,38 @@ export function PlanFlow({ query }: { query: string }) {
     }
     setBusy(true);
     setError(null);
+    setDrafted(null);
+
     try {
-      const places = await fetchPool(prefs.destination);
+      // Verified data first — it's better, and it costs nothing to check.
+      let places = await fetchPool(prefs.destination);
+      let meta: DraftMeta | null = null;
+
+      if (places.length === 0) {
+        setStage("drafting");
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(prefs),
+        });
+        const data = (await response.json()) as {
+          places?: Recommendation[];
+          meta?: DraftMeta;
+          error?: string;
+        };
+
+        if (!response.ok || !data.places?.length) {
+          setError(data.error ?? `We couldn't put together a trip for ${prefs.destination}.`);
+          return;
+        }
+        places = data.places;
+        meta = data.meta ?? null;
+      }
+
       const built = buildTrip(places, prefs);
       setPool(places);
       setTrip(built);
+      setDrafted(meta);
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(built));
       } catch {
@@ -111,6 +154,7 @@ export function PlanFlow({ query }: { query: string }) {
       setError("Something went wrong building the trip. Try again?");
     } finally {
       setBusy(false);
+      setStage("idle");
     }
   }
 
@@ -145,11 +189,12 @@ export function PlanFlow({ query }: { query: string }) {
       <>
         <PageHero
           phase="dawn"
-          eyebrow="Your trip"
+          eyebrow={drafted ? "Drafted for you" : "Your trip"}
           title={trip.prefs.destination}
           subtitle={`${nights} ${nights === 1 ? "day" : "days"}, ${trip.days.flatMap((d) => d.items).length} stops — and every one of them is yours to change.`}
         />
-        <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-8">
+        <main className="mx-auto w-full max-w-3xl flex-1 space-y-5 px-5 py-8">
+          {drafted && <Provenance meta={drafted} />}
           <TripView trip={trip} pool={pool} onChange={update} onRestart={discard} />
         </main>
       </>
@@ -185,12 +230,50 @@ export function PlanFlow({ query }: { query: string }) {
           type="button"
           onClick={build}
           disabled={busy}
-          className="w-full rounded-full bg-brand px-5 py-4 font-semibold text-white transition enabled:hover:bg-brand-bright disabled:opacity-40"
+          className="w-full rounded-full bg-brand px-5 py-4 font-semibold text-white transition enabled:hover:bg-brand-bright disabled:opacity-60"
         >
-          {busy ? "Building your trip…" : "Build my trip"}
+          {stage === "drafting"
+            ? "Reading the map, then drafting…"
+            : busy
+              ? "Building your trip…"
+              : "Build my trip"}
         </button>
+
+        {stage === "drafting" && (
+          <p className="text-center text-xs leading-relaxed text-ink-faint">
+            We&rsquo;re pulling real, mapped places around {prefs.destination}, then asking a
+            model to shape a trip from them — it may only use places that actually exist.
+            Usually ten seconds, occasionally closer to thirty when the map server is busy.
+          </p>
+        )}
       </main>
     </>
+  );
+}
+
+/**
+ * Which tier the traveller is looking at, stated plainly. A drafted trip is real places
+ * arranged by a model — not the same thing as our verified set, and it should never be
+ * allowed to look like it.
+ */
+function Provenance({ meta }: { meta: DraftMeta }) {
+  return (
+    <section className="rise rounded-2xl border border-gold/40 bg-gold/5 px-4 py-3.5">
+      <p className="text-sm font-semibold text-ink">Drafted, not verified</p>
+      <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+        Nobody from Sthānīya has been to {meta.destination}. Every place below is a real,
+        mapped location taken from {meta.candidatesConsidered} OpenStreetMap entries — the
+        model chose and described them, it didn&rsquo;t name them. Treat opening hours and
+        prices as unknown until you check.
+      </p>
+      {meta.inventedPlacesRejected > 0 && (
+        <p className="mt-1.5 text-xs text-ink-faint">
+          {meta.inventedPlacesRejected}{" "}
+          {meta.inventedPlacesRejected === 1 ? "suggestion was" : "suggestions were"} discarded
+          for not matching a real mapped place.
+        </p>
+      )}
+    </section>
   );
 }
 
