@@ -71,15 +71,17 @@ export const CATEGORIES = {
 export type Category = keyof typeof CATEGORIES;
 
 /**
- * Coarse bands rather than exact prices. We have no live pricing source, and inventing
- * "₹30" on a card would be exactly the fabrication the evidence field exists to prevent.
- * `approxInr` is a per-person planning estimate, surfaced as an estimate in the UI.
+ * Coarse bands rather than exact prices. We have no live pricing source, and inventing an
+ * exact figure on a card would be the fabrication the evidence field exists to prevent.
+ *
+ * `approx` is a per-person planning estimate expressed in the destination's own currency
+ * (carried on the record as `costCurrency`), so nothing here assumes a country.
  */
 export const PRICE_BANDS = {
-  free: { label: "Free", approxInr: 0 },
-  low: { label: "₹", approxInr: 120 },
-  mid: { label: "₹₹", approxInr: 400 },
-  high: { label: "₹₹₹", approxInr: 1000 },
+  free: { label: "Free", tier: 0, approx: 0 },
+  low: { label: "Budget", tier: 1, approx: 120 },
+  mid: { label: "Mid-range", tier: 2, approx: 400 },
+  high: { label: "Splurge", tier: 3, approx: 1000 },
 } as const;
 
 export type PriceBand = keyof typeof PRICE_BANDS;
@@ -93,6 +95,8 @@ export type Recommendation = {
   tag: LocalityTag;
   category: Category;
   priceBand: PriceBand;
+  /** Currency the cost estimate is quoted in. Set from the city's data, never assumed. */
+  costCurrency?: string;
   /** Typical time on site, in minutes — drives scheduling and the "slow it down" transform. */
   durationMinutes: number;
   coords?: Coords;

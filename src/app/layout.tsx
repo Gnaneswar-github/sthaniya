@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
+import { CurrencyProvider } from "@/components/currency/CurrencyProvider";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${fraunces.variable} ${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <CurrencyProvider>{children}</CurrencyProvider>
+      </body>
     </html>
   );
 }

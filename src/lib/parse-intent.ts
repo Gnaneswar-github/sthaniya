@@ -1,4 +1,6 @@
-import { DESTINATIONS } from "./destinations";
+import { parseBudget as parseMoney } from "./currency/parse";
+import type { BudgetPeriod } from "./currency/format";
+import { DESTINATIONS } from "./destinations/curation";
 import type { DialPosition, Interest, Pace, TravellerType } from "./types";
 
 /**
@@ -17,7 +19,8 @@ export type ParsedIntent = {
   destination: Evidence;
   durationDays: { value: number; matched: string } | null;
   travellerType: { value: TravellerType; matched: string } | null;
-  budgetPerDay: { value: number; currency: string; matched: string } | null;
+  /** `currency` is null when the traveller gave a number but never named a currency. */
+  budgetPerDay: { value: number; currency: string | null; period: BudgetPeriod; matched: string } | null;
   interests: { value: Interest; matched: string }[];
   dial: { value: DialPosition; matched: string } | null;
   pace: { value: Pace; matched: string } | null;
@@ -98,23 +101,28 @@ function parseParty(raw: string): ParsedIntent["travellerType"] {
 
 /* ---------------------------------------------------------------- budget */
 
-const CURRENCY_BY_SYMBOL: Record<string, string> = {
-  "₹": "INR", $: "USD", "€": "EUR", "£": "GBP", "¥": "JPY",
-};
-
-function parseBudget(raw: string): ParsedIntent["budgetPerDay"] {
+/**
+ * Budget parsing lives in the currency module, which knows every currency we support and is
+ * covered by tests. Duplicating a regex here is how "LKR 15000" quietly became rupees.
+ */
+function parseBudgetPhrase(raw: string): ParsedIntent["budgetPerDay"] {
   const hit = find(
     raw,
-    /([₹$€£¥]|\b(?:INR|USD|EUR|GBP|JPY|RS|RUPEES|DOLLARS?)\b)?\s*([\d,]+)\s*(?:([₹$€£¥]|\b(?:INR|USD|EUR|GBP|JPY|RS|RUPEES|DOLLARS?)\b)\s*)?(?:per day|a day|\/\s*day|each day|daily|per night|a night)/i,
+    /(?:[^.;,]*?\b(?:budget|spend|around|about|roughly|up to)\b[^.;,]*|[^.;,]*\b(?:per day|a day|\/\s*day|each day|daily|per night|a night|per person)\b[^.;,]*)/i,
   );
-  if (!hit) return null;
+  const phrase = hit?.[0]?.trim();
+  if (!phrase) return null;
 
-  const token = (hit[1] ?? hit[3] ?? "").trim().toUpperCase();
-  const currency = CURRENCY_BY_SYMBOL[token] ?? (token === "RS" || token === "RUPEES" ? "INR" : token === "DOLLAR" || token === "DOLLARS" ? "USD" : token || "INR");
-  const amount = Number(hit[2].replace(/,/g, ""));
-  if (!Number.isFinite(amount) || amount <= 0) return null;
+  // No fallback currency here: if the traveller didn't say one, we must not invent one.
+  const parsed = parseMoney(phrase, "");
+  if (!parsed || parsed.money.amount <= 0) return null;
 
-  return { value: amount, currency, matched: hit[0].trim() };
+  return {
+    value: parsed.money.amount,
+    currency: parsed.currencyFromText,
+    period: parsed.period,
+    matched: phrase,
+  };
 }
 
 /* -------------------------------------------------------------- interests */
@@ -191,7 +199,7 @@ export function parseIntent(raw: string): ParsedIntent {
     destination: parseDestination(text),
     durationDays: parseDuration(text),
     travellerType: parseParty(text),
-    budgetPerDay: parseBudget(text),
+    budgetPerDay: parseBudgetPhrase(text),
     interests: parseInterests(text),
     dial: parseDial(text),
     pace: parsePace(text),

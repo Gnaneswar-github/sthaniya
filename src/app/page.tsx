@@ -2,7 +2,7 @@ import { CategoryStrip, DestinationRail, MoodGrid, SurpriseMe } from "@/componen
 import { Hero } from "@/components/Hero";
 import { PlaceRail } from "@/components/PlaceRail";
 import { Footer, Nav } from "@/components/Shell";
-import { DESTINATIONS, RAILS, destinationById } from "@/lib/destinations";
+import { DESTINATIONS, RAILS, destinationById } from "@/lib/destinations/curation";
 import { getRecommendations } from "@/lib/recommendations";
 import { SUPPORTED_CITIES } from "@/lib/types";
 

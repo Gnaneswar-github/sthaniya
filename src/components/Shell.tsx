@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CurrencySelector } from "./currency/CurrencyControls";
 
 export function Nav() {
   return (
@@ -24,6 +25,7 @@ export function Nav() {
           >
             Hidden gems
           </Link>
+          <CurrencySelector />
           <Link
             href="/plan"
             className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-terracotta"

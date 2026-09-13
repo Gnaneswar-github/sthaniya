@@ -1,5 +1,7 @@
 "use client";
 
+import { CurrencyInput } from "./currency/CurrencyControls";
+import { DestinationSelector } from "./DestinationSelector";
 import {
   DIAL_POSITIONS,
   INTERESTS,
@@ -55,10 +57,12 @@ export function Understanding({
       </div>
 
       <Row label="Destination" source={readFrom.destination}>
-        <input
-          value={prefs.destination}
-          onChange={(event) => set("destination", event.target.value)}
-          className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 font-display text-xl text-ink outline-none focus:border-terracotta"
+        {prefs.destination && (
+          <p className="mb-1.5 font-display text-2xl leading-tight text-ink">{prefs.destination}</p>
+        )}
+        <DestinationSelector
+          placeholder={prefs.destination ? "Change destination" : "Search any city, country or island"}
+          onSelect={(destination) => set("destination", destination.name)}
         />
       </Row>
 
@@ -116,23 +120,14 @@ export function Understanding({
         />
       </Row>
 
-      <Row label="Budget per day" source={readFrom.budgetPerDay}>
-        <div className="flex items-center gap-2">
-          <input
-            value={prefs.budgetCurrency}
-            onChange={(event) => set("budgetCurrency", event.target.value.toUpperCase().slice(0, 4))}
-            aria-label="Currency"
-            className="w-20 rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
-          />
-          <input
-            type="number"
-            min={0}
-            step={100}
-            value={prefs.budgetPerDay}
-            onChange={(event) => set("budgetPerDay", Number(event.target.value))}
-            className="flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
-          />
-        </div>
+      <Row label="Budget" source={readFrom.budgetPerDay}>
+        <CurrencyInput
+          label=""
+          value={{ amount: prefs.budgetPerDay, currency: prefs.budgetCurrency }}
+          onChange={(money) => {
+            onChange({ ...prefs, budgetPerDay: money.amount, budgetCurrency: money.currency });
+          }}
+        />
       </Row>
 
       {avoid.length > 0 && (

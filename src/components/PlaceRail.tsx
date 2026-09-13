@@ -59,7 +59,7 @@ export function PlaceRail({
                     {place.description}
                   </p>
                   <p className="pt-0.5 text-[11px] text-ink-faint">
-                    {CATEGORIES[place.category]} · {PRICE_BANDS[place.priceBand].approxInr === 0 ? "Free" : PRICE_BANDS[place.priceBand].label} ·{" "}
+                    {CATEGORIES[place.category]} · {PRICE_BANDS[place.priceBand].label} ·{" "}
                     {placeLocalScore(place)} local
                   </p>
                 </div>

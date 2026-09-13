@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { Amount } from "./currency/CurrencyControls";
 import { clockLabel, durationLabel, placeLocalScore } from "@/lib/trip-engine";
 import {
   CATEGORIES,
@@ -65,7 +66,19 @@ export function ItemCard({
             <span>·</span>
             <span>{durationLabel(item.durationMinutes)}</span>
             <span>·</span>
-            <span>{price.approxInr === 0 ? "Free" : `${price.label} approx ₹${price.approxInr}`}</span>
+            <span>
+              {price.approx === 0 ? (
+                "Free"
+              ) : (
+                <>
+                  {price.label} ·{" "}
+                  <Amount
+                    money={{ amount: price.approx, currency: place.costCurrency ?? "USD" }}
+                    showConversion
+                  />
+                </>
+              )}
+            </span>
             <span>·</span>
             <span>{placeLocalScore(place)} local</span>
           </div>

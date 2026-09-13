@@ -1,6 +1,12 @@
 import type { Recommendation } from "../types";
 
 /**
+ * The currency this city's cost estimates are quoted in. It lives with the city data rather
+ * than in shared code, so adding a non-Indian destination needs no change anywhere else.
+ */
+export const PUNE_CURRENCY = "INR";
+
+/**
  * Seeded anchor spots for Pune.
  *
  * Every record here is `verified: false` until a human has opened the real listing and

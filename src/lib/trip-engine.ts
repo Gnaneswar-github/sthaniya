@@ -1,3 +1,4 @@
+import { formatMoney } from "./currency/format";
 import {
   PACES,
   PRICE_BANDS,
@@ -87,11 +88,17 @@ export function tripLocalScore(trip: Trip): number {
 }
 
 export function placeCost(place: Recommendation): number {
-  return PRICE_BANDS[place.priceBand].approxInr;
+  return PRICE_BANDS[place.priceBand].approx;
 }
 
 export function tripCost(trip: Trip): number {
   return trip.days.flatMap((d) => d.items).reduce((sum, item) => sum + placeCost(item.place), 0);
+}
+
+/** Whatever the destination's own data is quoted in. Falls back to the trip's own currency. */
+export function tripCostCurrency(trip: Trip): string {
+  const first = trip.days.flatMap((d) => d.items).find((item) => item.place.costCurrency);
+  return first?.place.costCurrency ?? trip.prefs.budgetCurrency;
 }
 
 export function tripTravelMinutes(trip: Trip): number {
@@ -368,12 +375,13 @@ export function makeCheaper(trip: Trip, pool: Recommendation[]): TransformResult
   }
 
   const saved = before - tripCost(next);
+  const currency = tripCostCurrency(next);
   return {
     trip: next,
     summary:
       saved <= 0
         ? "Nothing here is costing you much — most of this trip is already free to walk into."
-        : `Trimmed roughly ₹${saved.toLocaleString("en-IN")} by swapping paid stops for free ones.`,
+        : `Trimmed roughly ${formatMoney({ amount: saved, currency })} by swapping paid stops for free ones.`,
   };
 }
 

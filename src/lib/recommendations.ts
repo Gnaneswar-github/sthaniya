@@ -1,5 +1,5 @@
 import { PHOTOS } from "./data/photos";
-import { PUNE } from "./data/pune";
+import { PUNE, PUNE_CURRENCY } from "./data/pune";
 import { supabase } from "./supabase";
 import type { Category, Interest, LocalityTag, PriceBand, Recommendation } from "./types";
 
@@ -11,7 +11,7 @@ import type { Category, Interest, LocalityTag, PriceBand, Recommendation } from 
  * as a fallback: a live demo should not go blank because a network call failed on stage.
  */
 
-const SEEDED: Recommendation[] = [...PUNE];
+const SEEDED: Recommendation[] = PUNE.map((rec) => ({ ...rec, costCurrency: PUNE_CURRENCY }));
 
 type Row = {
   id: string;

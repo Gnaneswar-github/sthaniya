@@ -3,7 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CATEGORIES, MOODS, RAILS, type Destination } from "@/lib/destinations";
+import { INTEREST_TILES, MOODS, RAILS } from "@/lib/destinations/curation";
+import { extractFor } from "@/lib/destinations/curation";
+import type { Destination } from "@/lib/destinations/types";
 
 export function DestinationRail({
   title,
@@ -44,15 +46,22 @@ export function DestinationCard({ destination }: { destination: Destination }) {
       href={`/plan?q=${encodeURIComponent(destination.name)}`}
       className="lift group block overflow-hidden rounded-2xl border border-line bg-paper-raised"
     >
-      <div className="relative aspect-[4/3]">
-        <Image
-          src={destination.imageUrl}
-          alt={destination.name}
-          fill
-          sizes="(max-width: 640px) 60vw, 288px"
-          className="object-cover"
-        />
-        {destination.tier === "verified" && (
+      <div className="relative aspect-[4/3] bg-paper-sunken">
+        {destination.thumbnailUrl ? (
+          <Image
+            src={destination.thumbnailUrl}
+            alt={destination.name}
+            fill
+            loading="lazy"
+            sizes="(max-width: 640px) 60vw, 288px"
+            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          />
+        ) : (
+          <span className="flex h-full items-center justify-center font-display text-3xl text-ink-faint">
+            {destination.name.charAt(0)}
+          </span>
+        )}
+        {destination.verified && (
           <span className="absolute left-2 top-2 rounded-full bg-paper-raised/95 px-2.5 py-1 text-[11px] font-semibold text-moss">
             ✓ Verified set
           </span>
@@ -61,8 +70,12 @@ export function DestinationCard({ destination }: { destination: Destination }) {
 
       <div className="space-y-1 p-4">
         <h3 className="font-display text-xl leading-tight text-ink">{destination.name}</h3>
-        <p className="line-clamp-2 text-sm leading-relaxed text-ink-soft">{destination.extract}</p>
-        <p className="pt-1 text-[10px] text-ink-faint">Photo: {destination.credit}</p>
+        <p className="line-clamp-2 text-sm leading-relaxed text-ink-soft">
+          {extractFor(destination)}
+        </p>
+        {destination.thumbnailCredit && (
+          <p className="pt-1 text-[10px] text-ink-faint">Photo: {destination.thumbnailCredit}</p>
+        )}
       </div>
     </Link>
   );
@@ -106,7 +119,7 @@ export function CategoryStrip() {
 
       <div className="edge-fade -mx-5 px-5 sm:mx-0 sm:px-0">
         <ul className="rail flex gap-2.5 overflow-x-auto pb-2">
-          {CATEGORIES.map((category) => (
+          {INTEREST_TILES.map((category) => (
             <li key={category.id} className="shrink-0">
               <Link
                 href={`/plan?q=${encodeURIComponent(`A trip focused on ${category.label.toLowerCase()}`)}`}

@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { TripView } from "./TripView";
 import { Understanding } from "./Understanding";
-import { destinationByName } from "@/lib/destinations";
+import { useCurrency } from "./currency/CurrencyProvider";
+import { destinationByName, extractFor } from "@/lib/destinations/curation";
 import { parseIntent, type ParsedIntent } from "@/lib/parse-intent";
 import { buildTrip } from "@/lib/trip-engine";
 import type { Recommendation, Trip, TripPrefs } from "@/lib/types";
@@ -18,8 +19,11 @@ function isoIn(days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** Everything the parser missed falls back to a sane default that the UI flags as a guess. */
-function toPrefs(intent: ParsedIntent, raw: string): TripPrefs {
+/**
+ * Everything the parser missed falls back to a default the UI flags as a guess. The currency
+ * falls back to whatever the traveller is browsing in — never to a fixed one.
+ */
+function toPrefs(intent: ParsedIntent, raw: string, displayCurrency: string): TripPrefs {
   const days = intent.durationDays?.value ?? 3;
   return {
     destination: intent.destination?.value ?? "",
@@ -29,15 +33,16 @@ function toPrefs(intent: ParsedIntent, raw: string): TripPrefs {
     interests: intent.interests.length > 0 ? intent.interests.map((i) => i.value) : ["food", "local_life"],
     dial: intent.dial?.value ?? "local",
     pace: intent.pace?.value ?? "balanced",
-    budgetPerDay: intent.budgetPerDay?.value ?? 3000,
-    budgetCurrency: intent.budgetPerDay?.currency ?? "INR",
+    budgetPerDay: intent.budgetPerDay?.value ?? 0,
+    budgetCurrency: intent.budgetPerDay?.currency ?? displayCurrency,
     notes: raw,
   };
 }
 
 export function PlanFlow({ query }: { query: string }) {
+  const { currency } = useCurrency();
   const intent = useMemo(() => parseIntent(query), [query]);
-  const [prefs, setPrefs] = useState<TripPrefs>(() => toPrefs(intent, query));
+  const [prefs, setPrefs] = useState<TripPrefs>(() => toPrefs(intent, query, currency));
   const [trip, setTrip] = useState<Trip | null>(null);
   const [pool, setPool] = useState<Recommendation[]>([]);
   const [busy, setBusy] = useState(false);
@@ -198,36 +203,26 @@ function NotVerifiedYet({ destination, onBack }: { destination: string; onBack: 
 
       {sourced && (
         <section className="overflow-hidden rounded-3xl border border-line bg-paper-raised">
-          <div className="relative aspect-[16/9] sm:aspect-[21/9]">
-            <Image
-              src={sourced.imageUrl}
-              alt={sourced.name}
-              fill
-              sizes="(max-width: 768px) 100vw, 768px"
-              className="object-cover"
-            />
-          </div>
+          {sourced.thumbnailUrl && (
+            <div className="relative aspect-[16/9] sm:aspect-[21/9]">
+              <Image
+                src={sourced.thumbnailUrl}
+                alt={sourced.name}
+                fill
+                sizes="(max-width: 768px) 100vw, 768px"
+                className="object-cover"
+              />
+            </div>
+          )}
           <div className="space-y-2 p-5 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
               What we can tell you, sourced not written
             </p>
             <h3 className="font-display text-2xl text-ink">{sourced.name}</h3>
-            <p className="text-[15px] leading-relaxed text-ink-soft">{sourced.extract}</p>
+            <p className="text-[15px] leading-relaxed text-ink-soft">{extractFor(sourced)}</p>
             <p className="pt-1 text-[11px] text-ink-faint">
-              Summary from Wikipedia · Photo: {sourced.credit}
-              {sourced.wikipediaUrl && (
-                <>
-                  {" · "}
-                  <a
-                    href={sourced.wikipediaUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline hover:text-terracotta"
-                  >
-                    Read more
-                  </a>
-                </>
-              )}
+              Summary from Wikipedia
+              {sourced.thumbnailCredit && ` · Photo: ${sourced.thumbnailCredit}`}
             </p>
           </div>
         </section>

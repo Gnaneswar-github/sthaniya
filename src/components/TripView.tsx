@@ -13,6 +13,7 @@ import {
   replaceItem,
   slowDown,
   tripCost,
+  tripCostCurrency,
   tripLocalScore,
   tripTravelMinutes,
   usedPlaceIds,
@@ -20,6 +21,7 @@ import {
   REPLACE_REASONS,
   type ReplaceReason,
 } from "@/lib/trip-engine";
+import { formatMoney } from "@/lib/currency/format";
 import { INTERESTS, LOCALITY_TAGS, type Recommendation, type Trip } from "@/lib/types";
 
 const interestLabel = (id: string) => INTERESTS.find((i) => i.id === id)?.label ?? id;
@@ -48,6 +50,7 @@ export function TripView({
     () => ({
       score: tripLocalScore(trip),
       cost: tripCost(trip),
+      currency: tripCostCurrency(trip),
       travel: tripTravelMinutes(trip),
       stops: trip.days.flatMap((d) => d.items).length,
     }),
@@ -86,7 +89,11 @@ export function TripView({
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Local score" value={`${stats.score}`} sub="out of 100" />
-          <Stat label="Entry costs" value={`₹${stats.cost.toLocaleString("en-IN")}`} sub="estimated" />
+          <Stat
+            label="Entry costs"
+            value={formatMoney({ amount: stats.cost, currency: stats.currency })}
+            sub="estimated"
+          />
           <Stat label="Stops" value={`${stats.stops}`} sub={`${trip.days.length} days`} />
           <Stat label="Getting around" value={durationLabel(stats.travel)} sub="allowance" />
         </div>
