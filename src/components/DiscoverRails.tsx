@@ -161,7 +161,7 @@ export function SurpriseMe() {
         <button
           type="button"
           onClick={surprise}
-          className="shrink-0 rounded-xl bg-ink px-6 py-3.5 text-sm font-medium text-paper transition hover:bg-terracotta"
+          className="shrink-0 rounded-xl bg-ink px-6 py-3.5 text-sm font-medium text-paper transition hover:bg-brand"
         >
           Surprise me
         </button>

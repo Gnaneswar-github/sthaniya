@@ -1,28 +1,33 @@
 @import "tailwindcss";
 
 /*
- * One committed light identity: warm paper, deep ink, terracotta. The product is about
- * places that feel lived-in, so the surface should read like good print rather than a
- * dashboard. Colours are defined once on :root so nothing borrows the host theme.
+ * Two worlds, on purpose. The hero is deep sea-blue with gold and emerald over photography;
+ * everything below it is warm paper so the reading surface stays calm and print-like rather
+ * than turning into a dark dashboard.
  */
 :root {
   color-scheme: light;
 
-  --paper: #f6f1e8;
-  --paper-raised: #fffdf9;
-  --paper-sunken: #efe7d9;
-  --ink: #201b17;
-  --ink-soft: #5b5047;
-  --ink-faint: #8d8276;
-  --line: #e2d7c6;
-  --line-strong: #cfc0a8;
+  --paper: #f7f6f2;
+  --paper-raised: #ffffff;
+  --paper-sunken: #eeece5;
+  --ink: #17222a;
+  --ink-soft: #4d5c66;
+  --ink-faint: #85939c;
+  --line: #e2e0d8;
+  --line-strong: #cbc8bb;
 
-  --terracotta: #ad4526;
-  --terracotta-soft: #c9633f;
-  --saffron: #b9741f;
-  --moss: #445c3e;
-  --indigo: #37496090;
-  --indigo-solid: #374960;
+  /* Brand */
+  --brand: #15795a;
+  --brand-bright: #2fbf87;
+  --gold: #a8741a;
+  --gold-bright: #f5c164;
+  --moss: #3f6b4f;
+  --indigo-solid: #35506a;
+
+  /* Hero */
+  --deep: #0d2f42;
+  --deep-2: #071c29;
 }
 
 @theme inline {
@@ -34,11 +39,14 @@
   --color-ink-faint: var(--ink-faint);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
-  --color-terracotta: var(--terracotta);
-  --color-terracotta-soft: var(--terracotta-soft);
-  --color-saffron: var(--saffron);
+  --color-brand: var(--brand);
+  --color-brand-bright: var(--brand-bright);
+  --color-gold: var(--gold);
+  --color-gold-bright: var(--gold-bright);
   --color-moss: var(--moss);
   --color-indigo: var(--indigo-solid);
+  --color-deep: var(--deep);
+  --color-deep-2: var(--deep-2);
 
   --font-display: var(--font-fraunces);
   --font-sans: var(--font-inter);
@@ -50,11 +58,11 @@ body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Visible focus everywhere, since much of this UI is keyboard-driven chips and cards. */
+/* Much of this UI is chips and cards, so focus has to be unmistakable. */
 :where(a, button, input, textarea, select, [tabindex]):focus-visible {
-  outline: 2px solid var(--terracotta);
+  outline: 2px solid var(--brand-bright);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .edge-fade {
@@ -70,17 +78,23 @@ body {
 }
 
 .lift {
-  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.25s ease;
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.3, 1),
+    box-shadow 0.3s ease;
 }
 .lift:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 28px -18px rgba(32, 27, 23, 0.55);
+  transform: translateY(-4px);
+  box-shadow: 0 18px 38px -22px rgba(13, 47, 66, 0.5);
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .rise {
-    animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+    animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
   }
+  .rise-1 { animation-delay: 0.06s; }
+  .rise-2 { animation-delay: 0.12s; }
+  .rise-3 { animation-delay: 0.18s; }
+  .rise-4 { animation-delay: 0.24s; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -95,7 +109,7 @@ body {
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(14px);
   }
   to {
     opacity: 1;

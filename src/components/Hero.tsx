@@ -1,68 +1,61 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { DESTINATIONS } from "@/lib/destinations/curation";
 
-const EXAMPLES = [
-  "3 days in Tokyo with my wife. We love local food, quiet temples and photography. We don't like crowded tourist attractions. Budget around $200 per day.",
-  "A long weekend in Lisbon, solo. Old streets, cafés, nothing touristy. Relaxed pace.",
-  "5 days in Istanbul with friends — markets, street food and photography, around €90 per day.",
-  "2 days in Pune. First time, travelling with family, we want the must-see places.",
+/** Short enough to sit on one line in the pill — a clipped placeholder reads as a bug. */
+const PLACEHOLDERS = [
+  "3 days in Tokyo with my wife…",
+  "A long weekend in Lisbon, solo…",
+  "One evening in Kyoto…",
+  "6 hours in Colombo before my flight…",
 ];
 
-type Suggestion = {
-  id: string;
-  name: string;
-  context: string;
-  tier: "verified" | "sourced";
-};
+/** What the example button fills in: the full shape of a brief we can actually read. */
+const EXAMPLE =
+  "3 days in Tokyo with my wife. We love local food, quiet temples and photography. We don't like crowded tourist attractions. Budget around $200 per day.";
+
+/** Real curated places with real photography — never a list of cities we can't back up. */
+const QUICK_PICKS = [
+  "curated:tokyo",
+  "curated:kyoto",
+  "curated:lisbon",
+  "curated:istanbul",
+  "curated:marrakesh",
+];
 
 export function Hero() {
   const router = useRouter();
   const [text, setText] = useState("");
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [dismissed, setDismissed] = useState(false);
-  const [placeholder, setPlaceholder] = useState(EXAMPLES[0]);
-  const boxRef = useRef<HTMLDivElement>(null);
+  const [placeholder, setPlaceholder] = useState(PLACEHOLDERS[0]);
+  const areaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Rotate the example so the box reads as a prompt, not a template to fill in.
+  const picks = QUICK_PICKS.map((id) => DESTINATIONS.find((d) => d.id === id)).filter(
+    (d): d is NonNullable<typeof d> => Boolean(d),
+  );
+
+  // Rotating example, so the field reads as an invitation rather than a template.
   useEffect(() => {
     const timer = setInterval(() => {
-      setPlaceholder((current) => EXAMPLES[(EXAMPLES.indexOf(current) + 1) % EXAMPLES.length]);
-    }, 6000);
+      setPlaceholder(
+        (current) => PLACEHOLDERS[(PLACEHOLDERS.indexOf(current) + 1) % PLACEHOLDERS.length],
+      );
+    }, 6500);
     return () => clearInterval(timer);
   }, []);
 
-  // A long sentence is a description, not a search box — so whether suggestions apply at all
-  // is derived from the text rather than stored, and the effect only ever fetches.
-  const term = text.trim();
-  const searchable = term.length >= 2 && term.length <= 32 && !term.includes(" in ");
-  const visible = searchable && !dismissed ? suggestions : [];
+  function grow(element: HTMLTextAreaElement) {
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+  }
 
+  // An empty field still has to fit its placeholder, which changes length as it rotates and
+  // wraps differently on a phone. Measuring beats guessing at copy that fits.
   useEffect(() => {
-    if (!searchable) return;
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      fetch(`/api/destinations/search?q=${encodeURIComponent(term)}`, { signal: controller.signal })
-        .then((r) => r.json())
-        .then((data) => setSuggestions(data.suggestions ?? []))
-        .catch(() => undefined);
-    }, 280);
-
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [term, searchable]);
-
-  useEffect(() => {
-    function onClick(event: MouseEvent) {
-      if (!boxRef.current?.contains(event.target as Node)) setDismissed(true);
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
+    if (areaRef.current && !text) grow(areaRef.current);
+  }, [placeholder, text]);
 
   function go(value: string) {
     if (!value.trim()) return;
@@ -70,78 +63,152 @@ export function Hero() {
   }
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-line bg-paper-raised">
-      <div className="absolute inset-0" aria-hidden>
-        <div className="h-full w-full bg-gradient-to-br from-terracotta/12 via-saffron/8 to-moss/12" />
-      </div>
+    <section className="relative isolate overflow-hidden bg-deep-2">
+      <Image
+        src="/hero/santorini.jpg"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover object-[60%_center]"
+      />
+      {/* Two passes: one to carry the text, one to seat the photo behind it. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-r from-deep-2/95 via-deep/70 to-deep/25"
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-t from-deep-2/85 via-transparent to-deep-2/45"
+      />
 
-      <div className="relative px-5 py-12 sm:px-10 sm:py-16">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-terracotta">
-          Anywhere in the world
+      <div className="relative mx-auto w-full max-w-6xl px-5 pb-28 pt-14 sm:pb-36 sm:pt-20">
+        <p className="rise text-[11px] font-semibold uppercase tracking-[0.28em] text-white/70">
+          Your next journey
         </p>
-        <h1 className="mt-3 max-w-2xl font-display text-4xl leading-[1.05] text-ink sm:text-6xl">
-          Where do you want to go?
+
+        <h1 className="rise rise-1 mt-4 max-w-3xl font-display text-[2.6rem] font-semibold leading-[1.03] text-white sm:text-7xl">
+          Travel like you
+          <br />
+          <span className="text-gold-bright">actually live there.</span>
         </h1>
-        <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-ink-soft sm:text-lg">
-          Describe the trip the way you&rsquo;d describe it to a friend. Sthānīya reads it,
-          shows you what it understood, and builds something you can argue with.
+
+        <p className="rise rise-2 mt-5 max-w-xl text-[15px] leading-relaxed text-white/80 sm:text-lg">
+          Describe the trip the way you&rsquo;d describe it to a friend. We read it, show you
+          exactly what we understood, and build something you can argue with.
         </p>
 
-        <div ref={boxRef} className="relative mt-7 max-w-2xl">
-          <textarea
-            value={text}
-            onChange={(event) => {
-              setText(event.target.value);
-              setDismissed(false);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) go(text);
-            }}
-            rows={3}
-            aria-label="Describe your trip"
-            placeholder={placeholder}
-            className="w-full resize-none rounded-2xl border border-line-strong bg-paper-raised px-5 py-4 text-[15px] leading-relaxed text-ink shadow-[0_2px_20px_-12px_rgba(32,27,23,0.4)] outline-none placeholder:text-ink-faint/70 focus:border-terracotta sm:text-base"
-          />
-
-          {visible.length > 0 && (
-            <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-2xl border border-line bg-paper-raised shadow-[0_18px_40px_-24px_rgba(32,27,23,0.6)]">
-              {visible.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => go(item.name)}
-                    className="flex w-full items-baseline justify-between gap-3 px-4 py-2.5 text-left transition hover:bg-paper"
-                  >
-                    <span className="text-[15px] text-ink">{item.name}</span>
-                    <span className="shrink-0 text-xs text-ink-faint">
-                      {item.tier === "verified" ? "✓ Verified" : item.context}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="rise rise-3 mt-8 max-w-2xl">
+          {/* Stacked on a phone: side by side, the button leaves too little room to read. */}
+          <div className="flex flex-col gap-2 rounded-3xl bg-white p-2.5 shadow-[0_24px_60px_-28px_rgba(7,28,41,0.9)] sm:flex-row sm:items-end sm:gap-2 sm:rounded-full">
+            <span aria-hidden className="hidden shrink-0 pb-2.5 pl-3 text-brand sm:block">
+              <PinIcon />
+            </span>
+            <textarea
+              ref={areaRef}
+              rows={1}
+              value={text}
+              aria-label="Describe your trip"
+              placeholder={placeholder}
+              onChange={(event) => {
+                setText(event.target.value);
+                grow(event.target);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  go(text);
+                }
+              }}
+              className="max-h-40 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none placeholder:text-ink-faint/80 sm:text-base"
+            />
+            {/* Never disabled: an empty click focuses the field rather than reading as broken. */}
             <button
               type="button"
-              onClick={() => go(text)}
-              disabled={!text.trim()}
-              className="rounded-xl bg-ink px-5 py-3 text-sm font-medium text-paper transition enabled:hover:bg-terracotta disabled:opacity-30"
+              onClick={() => (text.trim() ? go(text) : areaRef.current?.focus())}
+              className="w-full shrink-0 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-bright sm:w-auto sm:px-6"
             >
-              Read my trip
+              Build my journey
             </button>
+          </div>
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 pl-2">
             <button
               type="button"
-              onClick={() => setText(EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)])}
-              className="rounded-xl border border-line-strong px-4 py-3 text-sm text-ink-soft transition hover:border-terracotta hover:text-terracotta"
+              onClick={() => {
+                setText(EXAMPLE);
+                requestAnimationFrame(() => {
+                  if (areaRef.current) {
+                    grow(areaRef.current);
+                    areaRef.current.focus();
+                  }
+                });
+              }}
+              className="text-xs font-medium text-gold-bright underline-offset-4 hover:underline"
             >
-              Try an example
+              Try a full example
             </button>
-            <span className="hidden text-xs text-ink-faint sm:inline">or press ⌘↵</span>
+            <span className="text-xs text-white/50">
+              Enter to go · Shift + Enter for a new line
+            </span>
           </div>
         </div>
+
+        <div className="rise rise-4 mt-7">
+          <p className="mb-2.5 text-xs font-medium text-white/65">Start somewhere</p>
+          <ul className="flex flex-wrap gap-2">
+            {picks.map((destination) => (
+              <li key={destination.id}>
+                <button
+                  type="button"
+                  onClick={() => go(destination.name)}
+                  className="flex items-center gap-2 rounded-full bg-white/12 py-1.5 pl-1.5 pr-4 text-sm text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white/20"
+                >
+                  {destination.thumbnailUrl && (
+                    <span className="relative h-7 w-7 overflow-hidden rounded-full">
+                      <Image
+                        src={destination.thumbnailUrl}
+                        alt=""
+                        fill
+                        sizes="28px"
+                        className="object-cover"
+                      />
+                    </span>
+                  )}
+                  {destination.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
+
+      <WaveDivider />
     </section>
+  );
+}
+
+function WaveDivider() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 1440 90"
+      preserveAspectRatio="none"
+      className="absolute inset-x-0 bottom-0 h-[60px] w-full text-paper sm:h-[90px]"
+    >
+      <path
+        d="M0 62c180-34 340-44 520-30 180 13 300 44 470 44 150 0 300-26 450-56V90H0Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" strokeLinejoin="round" />
+      <circle cx="12" cy="10" r="2.6" />
+    </svg>
   );
 }

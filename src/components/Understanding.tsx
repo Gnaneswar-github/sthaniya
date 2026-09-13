@@ -72,7 +72,7 @@ export function Understanding({
             type="date"
             value={prefs.startDate}
             onChange={(event) => set("startDate", event.target.value)}
-            className="flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
+            className="flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-brand"
           />
           <span className="text-ink-faint">→</span>
           <input
@@ -80,7 +80,7 @@ export function Understanding({
             value={prefs.endDate}
             min={prefs.startDate}
             onChange={(event) => set("endDate", event.target.value)}
-            className="flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-terracotta"
+            className="flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-brand"
           />
         </div>
       </Row>
@@ -165,7 +165,7 @@ function Row({
         {source ? (
           <span className="text-xs text-moss">read from &ldquo;{source}&rdquo;</span>
         ) : (
-          <span className="text-xs text-saffron">we guessed — check this</span>
+          <span className="text-xs text-gold">we guessed — check this</span>
         )}
         {note && <span className="ml-auto text-xs text-ink-faint">{note}</span>}
       </div>
@@ -193,8 +193,8 @@ function Chips({
           onClick={() => onPick(item.id)}
           className={`rounded-full border px-3.5 py-2 text-sm transition ${
             isActive(item.id)
-              ? "border-terracotta bg-terracotta text-paper-raised"
-              : "border-line bg-paper text-ink hover:border-terracotta"
+              ? "border-brand bg-brand text-paper-raised"
+              : "border-line bg-paper text-ink hover:border-brand"
           }`}
         >
           {item.label}

@@ -145,7 +145,7 @@ export function DestinationSelector({
         aria-controls={listId}
         aria-autocomplete="list"
         placeholder={value ? value.name : placeholder}
-        className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-[15px] text-ink outline-none placeholder:text-ink-faint/70 focus:border-terracotta"
+        className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-[15px] text-ink outline-none placeholder:text-ink-faint/70 focus:border-brand"
       />
 
       {open && (
@@ -216,7 +216,7 @@ export function DestinationSelector({
           )}
 
           {degraded && status === "ready" && (
-            <p className="border-t border-line px-4 py-2 text-[11px] text-saffron">
+            <p className="border-t border-line px-4 py-2 text-[11px] text-gold">
               Some results are missing — one of our sources didn&rsquo;t respond.
             </p>
           )}

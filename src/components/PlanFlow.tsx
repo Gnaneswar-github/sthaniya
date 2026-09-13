@@ -145,7 +145,7 @@ export function PlanFlow({ query }: { query: string }) {
   return (
     <div className="rise space-y-5">
       {query && (
-        <blockquote className="rounded-2xl border-l-2 border-terracotta bg-paper-raised px-4 py-3 text-[15px] leading-relaxed text-ink-soft">
+        <blockquote className="rounded-2xl border-l-2 border-brand bg-paper-raised px-4 py-3 text-[15px] leading-relaxed text-ink-soft">
           &ldquo;{query}&rdquo;
         </blockquote>
       )}
@@ -153,7 +153,7 @@ export function PlanFlow({ query }: { query: string }) {
       <Understanding prefs={prefs} readFrom={readFrom} avoid={intent.avoid} onChange={setPrefs} />
 
       {error && (
-        <p className="rounded-xl border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink-soft">
+        <p className="rounded-xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm text-ink-soft">
           {error}
         </p>
       )}
@@ -162,7 +162,7 @@ export function PlanFlow({ query }: { query: string }) {
         type="button"
         onClick={build}
         disabled={busy}
-        className="w-full rounded-xl bg-ink px-5 py-4 font-medium text-paper transition enabled:hover:bg-terracotta disabled:opacity-40"
+        className="w-full rounded-xl bg-ink px-5 py-4 font-medium text-paper transition enabled:hover:bg-brand disabled:opacity-40"
       >
         {busy ? "Building your trip…" : "Build my trip"}
       </button>
@@ -175,7 +175,7 @@ function NotVerifiedYet({ destination, onBack }: { destination: string; onBack: 
 
   return (
     <div className="rise space-y-5">
-      <section className="rounded-3xl border border-saffron/40 bg-saffron/5 p-5 sm:p-7">
+      <section className="rounded-3xl border border-gold/40 bg-gold/5 p-5 sm:p-7">
         <h2 className="font-display text-2xl leading-tight text-ink sm:text-3xl">
           We don&rsquo;t have {destination} verified yet
         </h2>
@@ -187,14 +187,14 @@ function NotVerifiedYet({ destination, onBack }: { destination: string; onBack: 
         <div className="mt-4 flex flex-wrap gap-2">
           <Link
             href="/"
-            className="rounded-xl bg-ink px-5 py-3 text-sm font-medium text-paper transition hover:bg-terracotta"
+            className="rounded-xl bg-ink px-5 py-3 text-sm font-medium text-paper transition hover:bg-brand"
           >
             Browse verified destinations
           </Link>
           <button
             type="button"
             onClick={onBack}
-            className="rounded-xl border border-line-strong px-4 py-3 text-sm text-ink-soft transition hover:border-terracotta hover:text-terracotta"
+            className="rounded-xl border border-line-strong px-4 py-3 text-sm text-ink-soft transition hover:border-brand hover:text-brand"
           >
             Edit my preferences
           </button>

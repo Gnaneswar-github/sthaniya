@@ -13,7 +13,7 @@ import {
 
 const TAG_STYLE: Record<LocalityTag, { pill: string; band: string }> = {
   tourist_essential: { pill: "bg-indigo/10 text-indigo", band: "from-indigo/85 to-indigo/45" },
-  local_favourite: { pill: "bg-terracotta/10 text-terracotta", band: "from-terracotta/85 to-saffron/50" },
+  local_favourite: { pill: "bg-brand/10 text-brand", band: "from-brand/85 to-gold/50" },
   hidden_gem: { pill: "bg-moss/10 text-moss", band: "from-moss/85 to-moss/40" },
 };
 
@@ -91,7 +91,7 @@ export function ItemCard({
           </div>
 
           {item.offPreferredWindow && (
-            <p className="text-xs italic text-saffron">
+            <p className="text-xs italic text-gold">
               Scheduled outside its best window ({place.timeWindow.start}–{place.timeWindow.end}) —
               move it earlier if you can.
             </p>
@@ -101,14 +101,14 @@ export function ItemCard({
             <button
               type="button"
               onClick={onReplace}
-              className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-soft transition hover:border-terracotta hover:text-terracotta"
+              className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-soft transition hover:border-brand hover:text-brand"
             >
               Replace
             </button>
             <button
               type="button"
               onClick={onRemove}
-              className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-soft transition hover:border-terracotta hover:text-terracotta"
+              className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-soft transition hover:border-brand hover:text-brand"
             >
               Remove
             </button>

@@ -73,7 +73,7 @@ export function TripView({
         <button
           type="button"
           onClick={onRestart}
-          className="text-sm text-ink-faint transition hover:text-terracotta"
+          className="text-sm text-ink-faint transition hover:text-brand"
         >
           ← Start a new trip
         </button>
@@ -120,7 +120,7 @@ export function TripView({
       {trip.notes.map((note) => (
         <p
           key={note}
-          className="rounded-xl border border-saffron/30 bg-saffron/5 px-4 py-3 text-[15px] leading-relaxed text-ink-soft"
+          className="rounded-xl border border-gold/30 bg-gold/5 px-4 py-3 text-[15px] leading-relaxed text-ink-soft"
         >
           {note}
         </p>
@@ -170,7 +170,7 @@ export function TripView({
           <button
             type="button"
             onClick={() => setAdding(adding === dayIndex ? null : dayIndex)}
-            className="w-full rounded-xl border border-dashed border-line px-4 py-3 text-sm text-ink-soft transition hover:border-terracotta hover:text-terracotta"
+            className="w-full rounded-xl border border-dashed border-line px-4 py-3 text-sm text-ink-soft transition hover:border-brand hover:text-brand"
           >
             {adding === dayIndex ? "Close" : "Add a stop to this day"}
           </button>
@@ -224,10 +224,10 @@ function ReplacePanel({
   const options = reason ? alternativesFor(trip, pool, itemId, reason) : [];
 
   return (
-    <div className="space-y-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 p-4">
+    <div className="space-y-3 rounded-2xl border border-brand/30 bg-brand/5 p-4">
       <div className="flex items-baseline justify-between">
         <p className="text-sm font-medium text-ink">Why swap this one out?</p>
-        <button type="button" onClick={onClose} className="text-xs text-ink-faint hover:text-terracotta">
+        <button type="button" onClick={onClose} className="text-xs text-ink-faint hover:text-brand">
           Cancel
         </button>
       </div>
@@ -240,8 +240,8 @@ function ReplacePanel({
             onClick={() => setReason(option.id)}
             className={`rounded-full border px-3 py-1.5 text-xs transition ${
               reason === option.id
-                ? "border-terracotta bg-terracotta text-paper-raised"
-                : "border-line bg-paper-raised text-ink-soft hover:border-terracotta"
+                ? "border-brand bg-brand text-paper-raised"
+                : "border-line bg-paper-raised text-ink-soft hover:border-brand"
             }`}
           >
             {option.label}
@@ -261,7 +261,7 @@ function ReplacePanel({
           key={place.id}
           type="button"
           onClick={() => onPick(place)}
-          className="block w-full rounded-xl border border-line bg-paper-raised p-3 text-left transition hover:border-terracotta"
+          className="block w-full rounded-xl border border-line bg-paper-raised p-3 text-left transition hover:border-brand"
         >
           <span className="font-display text-lg text-ink">{place.name}</span>
           <span className="block text-sm text-ink-soft">{place.vibe}</span>
@@ -289,7 +289,7 @@ function Transform({ children, onClick }: { children: React.ReactNode; onClick: 
     <button
       type="button"
       onClick={onClick}
-      className="rounded-full border border-line bg-paper px-4 py-2 text-sm text-ink transition hover:border-terracotta hover:text-terracotta"
+      className="rounded-full border border-line bg-paper px-4 py-2 text-sm text-ink transition hover:border-brand hover:text-brand"
     >
       {children}
     </button>

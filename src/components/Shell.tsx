@@ -1,34 +1,52 @@
 import Link from "next/link";
+import { Wordmark } from "./Logo";
 import { CurrencySelector } from "./currency/CurrencyControls";
 
-export function Nav() {
+/**
+ * `overHero` gives the homepage a transparent nav that sits on the photograph; every other
+ * page gets the solid paper treatment.
+ */
+export function Nav({ overHero = false }: { overHero?: boolean }) {
+  const link = overHero ? "text-white/80 hover:text-white" : "text-ink-soft hover:text-brand";
+
   return (
-    <header className="sticky top-0 z-30 border-b border-line/80 bg-paper/85 backdrop-blur">
-      <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-3">
-        <Link href="/" className="group flex items-baseline gap-2">
-          <span className="font-display text-xl tracking-tight text-ink">Sthānīya</span>
-          <span className="hidden text-[11px] text-ink-faint sm:inline">
-            Travel like a local. Plan like you know the city.
-          </span>
+    <header
+      className={
+        overHero
+          ? "absolute inset-x-0 top-0 z-30"
+          : "sticky top-0 z-30 border-b border-line/80 bg-paper/90 backdrop-blur"
+      }
+    >
+      <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4">
+        <Link href="/" aria-label="Sthānīya home">
+          <Wordmark
+            markClassName={`h-7 w-7 ${overHero ? "text-brand-bright" : "text-brand"}`}
+            textClassName={`font-display text-xl tracking-tight ${overHero ? "text-white" : "text-ink"}`}
+          />
         </Link>
 
-        <div className="flex items-center gap-1.5">
-          <Link
-            href="/#destinations"
-            className="rounded-lg px-3 py-2 text-sm text-ink-soft transition hover:text-terracotta"
-          >
-            Destinations
+        <div className="flex items-center gap-1">
+          <Link href="/#destinations" className={`rounded-lg px-3 py-2 text-sm transition ${link}`}>
+            Explore
           </Link>
           <Link
             href="/#gems"
-            className="hidden rounded-lg px-3 py-2 text-sm text-ink-soft transition hover:text-terracotta sm:block"
+            className={`hidden rounded-lg px-3 py-2 text-sm transition sm:block ${link}`}
           >
             Hidden gems
           </Link>
-          <CurrencySelector />
+
+          <span className="mx-1.5 hidden sm:block">
+            <CurrencySelector onHero={overHero} />
+          </span>
+
           <Link
             href="/plan"
-            className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-terracotta"
+            className={
+              overHero
+                ? "rounded-full bg-white px-4 py-2 text-sm font-semibold text-deep transition hover:bg-gold-bright"
+                : "rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-bright"
+            }
           >
             Plan a trip
           </Link>
@@ -41,9 +59,9 @@ export function Nav() {
 export function Footer() {
   return (
     <footer className="mt-16 border-t border-line bg-paper-sunken">
-      <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-10 sm:grid-cols-3">
+      <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-12 sm:grid-cols-3">
         <div className="space-y-2">
-          <p className="font-display text-xl text-ink">Sthānīya</p>
+          <Wordmark markClassName="h-6 w-6 text-brand" textClassName="font-display text-lg text-ink" />
           <p className="text-sm leading-relaxed text-ink-soft">
             Built for people with a few days in an unfamiliar city and no local friend to ask.
           </p>
@@ -55,16 +73,17 @@ export function Footer() {
           </p>
           <p className="leading-relaxed text-ink-soft">
             Verified places are researched and checked by a person before a city goes live.
-            Everywhere else is sourced from Wikipedia and OpenStreetMap and labelled as such.
-            We don&rsquo;t invent ratings, prices or reviews.
+            Everywhere else is sourced from Wikipedia and OpenStreetMap and labelled as such. We
+            don&rsquo;t invent ratings, prices or reviews.
           </p>
         </div>
 
         <div className="space-y-2 text-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Credits</p>
           <p className="leading-relaxed text-ink-soft">
-            Photography from Wikimedia Commons under Creative Commons licences, credited on
-            each image. Geocoding by OpenStreetMap contributors.
+            Photography from Wikimedia Commons under Creative Commons licences, credited on each
+            image. Hero: Santorini by Sidvics, CC BY-SA 4.0. Geocoding by OpenStreetMap
+            contributors. Exchange rates from the European Central Bank.
           </p>
         </div>
       </div>

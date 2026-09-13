@@ -2,6 +2,7 @@ import { CategoryStrip, DestinationRail, MoodGrid, SurpriseMe } from "@/componen
 import { Hero } from "@/components/Hero";
 import { PlaceRail } from "@/components/PlaceRail";
 import { Footer, Nav } from "@/components/Shell";
+import { TrustStrip } from "@/components/TrustStrip";
 import { DESTINATIONS, RAILS, destinationById } from "@/lib/destinations/curation";
 import { getRecommendations } from "@/lib/recommendations";
 import { SUPPORTED_CITIES } from "@/lib/types";
@@ -14,12 +15,15 @@ export default async function Home() {
 
   return (
     <>
-      <Nav />
-
-      <main className="mx-auto w-full max-w-6xl flex-1 space-y-14 px-5 py-6 sm:py-8">
+      <div className="relative">
+        <Nav overHero />
         <Hero />
+      </div>
 
-        <section id="destinations" className="space-y-10">
+      <TrustStrip />
+
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-14 px-5 py-12">
+        <section id="destinations" className="space-y-11">
           {RAILS.map((rail) => (
             <DestinationRail
               key={rail.id}
@@ -36,7 +40,7 @@ export default async function Home() {
 
         <CategoryStrip />
 
-        <section id="gems" className="space-y-10">
+        <section id="gems" className="space-y-11">
           <PlaceRail
             title="Hidden in plain sight"
             blurb="Places in our verified set that almost nobody visiting for the first time reaches."
@@ -51,12 +55,15 @@ export default async function Home() {
 
         <SurpriseMe />
 
-        <section className="rounded-3xl border border-line bg-paper-raised px-5 py-8 sm:px-10">
-          <h2 className="max-w-xl font-display text-2xl leading-tight text-ink sm:text-3xl">
-            {DESTINATIONS.length} destinations to explore, {SUPPORTED_CITIES.length} with a
-            human-checked set behind them.
+        <section className="overflow-hidden rounded-3xl bg-deep px-6 py-10 sm:px-10 sm:py-12">
+          <h2 className="max-w-2xl font-display text-2xl leading-tight text-white sm:text-3xl">
+            {DESTINATIONS.length} destinations to explore.{" "}
+            <span className="text-gold-bright">
+              {SUPPORTED_CITIES.length} with a human-checked set behind{" "}
+              {SUPPORTED_CITIES.length === 1 ? "it" : "them"}.
+            </span>
           </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-soft">
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/75">
             We&rsquo;d rather tell you which is which than pretend we know every city equally
             well. A destination becomes verified when a person has checked every recommendation
             in it — not when it gets added to a list.

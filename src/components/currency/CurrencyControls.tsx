@@ -35,7 +35,13 @@ export function Amount({
   );
 }
 
-export function CurrencySelector({ compact = false }: { compact?: boolean }) {
+export function CurrencySelector({
+  compact = false,
+  onHero = false,
+}: {
+  compact?: boolean;
+  onHero?: boolean;
+}) {
   const { currency, setCurrency, source } = useCurrency();
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -55,8 +61,13 @@ export function CurrencySelector({ compact = false }: { compact?: boolean }) {
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="rounded-lg border border-line px-2.5 py-1.5 text-sm text-ink-soft transition hover:border-terracotta hover:text-terracotta"
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition ${
+          onHero
+            ? "text-white/80 ring-1 ring-white/25 hover:bg-white/10 hover:text-white"
+            : "text-ink-soft ring-1 ring-line hover:text-brand"
+        }`}
       >
+        <GlobeIcon />
         {getCurrency(currency)?.symbol ?? currency} {!compact && currency}
       </button>
 
@@ -81,7 +92,7 @@ export function CurrencySelector({ compact = false }: { compact?: boolean }) {
                     setOpen(false);
                   }}
                   className={`flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-paper ${
-                    option.code === currency ? "text-terracotta" : "text-ink"
+                    option.code === currency ? "text-brand" : "text-ink"
                   }`}
                 >
                   <span>
@@ -133,7 +144,7 @@ export function CurrencyInput({
         inputMode="text"
         onChange={(event) => commit(event.target.value)}
         placeholder={`${getCurrency(currency)?.symbol ?? ""}150, 150 USD, LKR 15000…`}
-        className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-ink-faint/60 focus:border-terracotta"
+        className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-ink-faint/60 focus:border-brand"
       />
       <p className="text-xs text-ink-faint">
         {text.trim() === "" ? (
@@ -148,10 +159,26 @@ export function CurrencyInput({
             {!parsed.currencyFromText && ` — assuming ${parsed.money.currency}, change it above if not`}
           </>
         ) : (
-          <span className="text-saffron">We couldn&rsquo;t read a number in that.</span>
+          <span className="text-gold">We couldn&rsquo;t read a number in that.</span>
         )}
       </p>
     </div>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      aria-hidden
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3c2.4 2.5 3.6 5.5 3.6 9s-1.2 6.5-3.6 9c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3Z" />
+    </svg>
   );
 }
 
