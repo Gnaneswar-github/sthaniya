@@ -1,0 +1,110 @@
+{
+  "tokyo": {
+    "title": "Tokyo",
+    "extract": "Tokyo, officially the Tokyo Metropolis, is the capital and most populous city of Japan. The population of the city proper was over 14 million as of 2023. The Greater Tokyo Area, which includes Tokyo and parts of six neighboring prefectures, is the third-most populous metropolitan area in the world, with 33 million residents as of 2025.",
+    "lat": 35.68972222,
+    "lng": 139.69222222,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Tokyo",
+    "credit": "David Kernan / CC BY 4.0",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Tokyo_Tower,_Minato_City.jpg"
+  },
+  "kyoto": {
+    "title": "Kyoto",
+    "extract": "Kyoto, officially Kyoto City , is the capital city of Kyoto Prefecture in the Kansai region of Japan's largest and most populous island of Honshu. As of 2020, the city had a population of 1.46 million, making it the ninth-most populous city in Japan. More than half (56.8%) of Kyoto Prefecture's population resides in the city. The city is the cultural anchor of the substantially larger Greater Kyoto, a metropolitan statistical area home to approximately 3.8 million people. It is also part of the even larger Keihanshin metropolitan area, along with Osaka and Kobe.",
+    "lat": 35.01161,
+    "lng": 135.76811,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Kyoto",
+    "credit": "Basile Morin / CC BY-SA 4.0",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Yasaka-dori_early_morning_with_street_lanterns_and_the_Tower_of_Yasaka_(Hokan-ji_Temple),_Kyoto,_Japan.jpg"
+  },
+  "istanbul": {
+    "title": "Istanbul",
+    "extract": "Istanbul is the largest city in Turkey, a megacity, constituting the country's economic, cultural, and historical center. With a population of over 15 million, it is home to 18% of the population of Turkey. Istanbul is among the largest cities in Europe and in the world by population. It is a city on two continents; about two-thirds of its population live in Europe and the rest in Asia. Istanbul straddles the Bosphorus – one of the world's busiest waterways – in northwestern Turkey, between the Sea of Marmara and the Black Sea. Its area of 5,461 square kilometers (2,109 mi2) is coterminous with Istanbul Province.",
+    "lat": 41.01361111,
+    "lng": 28.955,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Istanbul",
+    "credit": "Astronaut photograph ISS008-E-21752 / Public domain",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Istanbul_and_Bosporus_big.jpg"
+  },
+  "lisbon": {
+    "title": "Lisbon",
+    "extract": "Lisbon is the capital and most populous city of Portugal, with an estimated population of 658,236 as of 2025, within its administrative limits and 3,353,000 within the metropolis, as of 2025. The city lies on the Atlantic Ocean in the western part of the Iberian Peninsula, fronting the northern shore of the River Tagus. The western portion of its metro area, the Portuguese Riviera, hosts the westernmost point of Continental Europe, culminating at Cabo da Roca.",
+    "lat": 38.72527778,
+    "lng": -9.15,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Lisbon",
+    "credit": "Ввласенко / CC BY-SA 4.0",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Tram_28_Lisbon_Portuguese.jpg"
+  },
+  "mexico-city": {
+    "title": "Mexico City",
+    "extract": "Mexico City is the capital and largest city of Mexico, as well as the most populous city in North America. It is one of the world's leading cultural and financial centers and, according to the Globalization and World Cities Research Network's 2024 ranking, is classified as an Alpha world city. Located in the Valley of Mexico on the high Mexican Central Plateau, the city sits at an altitude of 2,240 meters. It is divided into 16 boroughs, or alcaldías, which are further subdivided into neighborhoods, or colonias.",
+    "lat": 19.43333333,
+    "lng": -99.13333333,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Mexico_City",
+    "credit": "Jeses / CC BY-SA 2.5",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Mexico_City_Palacio_de_bellas_artes.jpg"
+  },
+  "marrakesh": {
+    "title": "Marrakesh",
+    "extract": "Marrakesh or Marrakech is the fourth-largest city in Morocco. It is one of the four imperial cities of Morocco and is the capital of the Marrakesh-Safi region. The city lies west of the foothills of the Atlas Mountains.",
+    "lat": 31.63,
+    "lng": -8.00888889,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Marrakesh",
+    "credit": "Petar Milošević / CC BY-SA 4.0",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Artisan_coloring_a_lamp,_Medina_Marrakesh_(Morocco).jpg"
+  },
+  "hanoi": {
+    "title": "Hanoi",
+    "extract": "Hanoi is the capital and second-most populous centrally-governed city of Vietnam. It covers an area of 3,358.6 km2 (1,296.8 mi2), and as of 2025 has a population of 8,807,523. Hanoi had the second-highest gross regional domestic product of all Vietnamese provinces and centrally-governed city at US$48 billion in 2023, behind Ho Chi Minh City. It hosts 78 foreign embassies, the headquarters of the Vietnam People's Army (VPA), its Vietnam National University system, and other governmental organizations. Hanoi had 18.7 million domestic and international visitors in 2022. It hosts the Imperial Citadel of Thăng Long, Ho Chi Minh Mausoleum, Hoàn Kiếm Lake, West Lake, and Ba Vì National Park near the outskirts of the municipality. Hanoi's urban area has architectural styles, including pre-colonial Vietnamese architecture, French colonial architecture, brutalist apartments and disorganized alleys and tube houses stemming from the city's growth in the 20th century.",
+    "lat": 21,
+    "lng": 105.85,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Hanoi",
+    "credit": "Jakub Hałun / CC BY 4.0",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Street_seller_of_fingered_citrons_in_Old_Town_of_Hanoi,_20240204_1335_5772.jpg"
+  },
+  "varanasi": {
+    "title": "Varanasi",
+    "extract": "Varanasi, or Kashi, is a city on the Ganges river in northern India that has a central place in the traditions of pilgrimage, death, and mourning in the Hindu world. The city also has a syncretic tradition of Islamic artisanship that underpins its religious tourism. Located in the middle-Ganges valley in the southeastern part of the state of Uttar Pradesh, Varanasi lies on the left bank of the river. It is 692 kilometres (430 mi) to the southeast of India's capital New Delhi and 320 kilometres (200 mi) to the southeast of the state capital, Lucknow. It lies 121 kilometres (75 mi) downstream of Prayagraj, where the confluence with the Yamuna river is another major Hindu pilgrimage site.",
+    "lat": 25.31888889,
+    "lng": 83.01277778,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Varanasi",
+    "credit": "Marcin Białek / CC BY-SA 3.0",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Varanasi_Munshi_Ghat3.jpg"
+  },
+  "george-town-penang": {
+    "title": "George Town, Penang",
+    "extract": "George Town is the capital of the Malaysian state of Penang. It is the core city of the George Town Conurbation, Malaysia's second largest metropolitan area with a population of 2.84 million and the second largest metropolitan economy in the country. The city proper spans an area of 306 km2 (118 sq mi) encompassing Penang Island and surrounding islets, and had a population of 794,313 as of 2020.",
+    "lat": 5.41444444,
+    "lng": 100.32916667,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/George_Town%2C_Penang",
+    "credit": "CEphoto, Uwe Aranas / CC BY-SA 3.0",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Penang_Malaysia_The-George-Town-Dispensary-01.jpg"
+  },
+  "tbilisi": {
+    "title": "Tbilisi",
+    "extract": "Tbilisi is the capital and largest city of Georgia, located on the banks of the Kura River. With more than 1.3 million inhabitants, it contains almost one third of the country's population. Tbilisi was founded in the 5th century CE by Vakhtang I of Iberia and has since served as the capital of various Georgian kingdoms and republics. Between 1801 and 1917, then part of the Russian Empire, it was the seat of the Caucasus Viceroyalty, governing both the northern and southern sides of the Caucasus.",
+    "lat": 41.7225,
+    "lng": 44.7925,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Tbilisi",
+    "credit": "Vyacheslav Argenberg / CC BY 4.0",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Tbilisi,_Old_town,_Georgia.jpg"
+  },
+  "oaxaca": {
+    "title": "Oaxaca City",
+    "extract": "Oaxaca de Juárez, or simply Oaxaca, is the capital and largest city of the eponymous Mexican state of Oaxaca. It is the municipal seat for the surrounding municipality of Oaxaca, the most populous municipality in Oaxaca, and the fourth most densely populated municipality in Oaxaca, only being less densely populated than San Jacinto Amilpas, Santa Lucía del Camino, and Santa Cruz Amilpas. It is in the Centro District in the Central Valleys region of the state, in the foothills of the Sierra Madre at the base of the Cerro del Fortín, extending to the banks of the Atoyac River.",
+    "lat": 17.06055556,
+    "lng": -96.72527778,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Oaxaca_City",
+    "credit": "Michael Holloway / CC BY-SA 4.0",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Oaxaca_City_street.jpg"
+  },
+  "pune": {
+    "title": "Pune",
+    "extract": "Pune, previously spelled in English as Poona, is a city in the state of Maharashtra in the Deccan Plateau in Western India. It is the administrative headquarters of the Pune district, and of Pune division. In terms of the total amount of land under its jurisdiction, Pune is the largest city in Maharashtra by area, with a geographical area of 516.18km2, though by population it comes in a distant second to Mumbai. The city of Pune is part of Pune Metropolitan Region, which according to the 2011 Census of India, has 7.2 million residents, making it the seventh-most populous metropolitan area in India. Pune is one of the largest IT hubs in India. It is also one of the most important automobile and manufacturing hubs of India. Pune is often referred to as the \"Oxford of the East\" because of its educational institutions. It has been ranked \"the most liveable city in India\" several times.",
+    "lat": 18.52111111,
+    "lng": 73.85527778,
+    "wikipediaUrl": "https://en.wikipedia.org/wiki/Pune",
+    "credit": "Vyacheslav Argenberg / CC BY 4.0",
+    "imageSourceUrl": "https://commons.wikimedia.org/wiki/File:Pune,_Maharashtra,_India,_Family,_Mothers_and_their_children.jpg"
+  }
+}

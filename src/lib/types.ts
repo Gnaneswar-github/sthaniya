@@ -145,8 +145,10 @@ export type TripPrefs = {
   /** The locality dial, carried over from v1 — it remains the product's differentiator. */
   dial: DialPosition;
   pace: Pace;
-  budgetPerDayInr: number;
-  /** Free text. Richer signal than any checkbox, so it is never silently dropped. */
+  /** Kept in the currency the traveller typed. We have no FX source, so we don't convert. */
+  budgetPerDay: number;
+  budgetCurrency: string;
+  /** The original sentence. Richer signal than any checkbox, so it is never silently dropped. */
   notes: string;
 };
 

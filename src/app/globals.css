@@ -1,31 +1,44 @@
 @import "tailwindcss";
 
+/*
+ * One committed light identity: warm paper, deep ink, terracotta. The product is about
+ * places that feel lived-in, so the surface should read like good print rather than a
+ * dashboard. Colours are defined once on :root so nothing borrows the host theme.
+ */
 :root {
   color-scheme: light;
 
-  --paper: #f7f2ea;
+  --paper: #f6f1e8;
   --paper-raised: #fffdf9;
-  --ink: #241f1b;
-  --ink-soft: #5f544a;
-  --ink-faint: #8f8478;
-  --line: #e4d9c9;
-  --terracotta: #b04a2b;
-  --saffron: #bf7a22;
-  --moss: #4a6244;
-  --indigo: #3d5169;
+  --paper-sunken: #efe7d9;
+  --ink: #201b17;
+  --ink-soft: #5b5047;
+  --ink-faint: #8d8276;
+  --line: #e2d7c6;
+  --line-strong: #cfc0a8;
+
+  --terracotta: #ad4526;
+  --terracotta-soft: #c9633f;
+  --saffron: #b9741f;
+  --moss: #445c3e;
+  --indigo: #37496090;
+  --indigo-solid: #374960;
 }
 
 @theme inline {
   --color-paper: var(--paper);
   --color-paper-raised: var(--paper-raised);
+  --color-paper-sunken: var(--paper-sunken);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-ink-faint: var(--ink-faint);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-terracotta: var(--terracotta);
+  --color-terracotta-soft: var(--terracotta-soft);
   --color-saffron: var(--saffron);
   --color-moss: var(--moss);
-  --color-indigo: var(--indigo);
+  --color-indigo: var(--indigo-solid);
 
   --font-display: var(--font-fraunces);
   --font-sans: var(--font-inter);
@@ -37,16 +50,52 @@ body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Visible focus everywhere, since much of this UI is keyboard-driven chips and cards. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--terracotta);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.edge-fade {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+
+.rail {
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+.lift {
+  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.25s ease;
+}
+.lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px -18px rgba(32, 27, 23, 0.55);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .rise {
-    animation: rise 0.42s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+    animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lift {
+    transition: none;
+  }
+  .lift:hover {
+    transform: none;
   }
 }
 
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;

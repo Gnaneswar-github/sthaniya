@@ -1,18 +1,70 @@
-import { Planner } from "@/components/Planner";
+import { CategoryStrip, DestinationRail, MoodGrid, SurpriseMe } from "@/components/DiscoverRails";
+import { Hero } from "@/components/Hero";
+import { PlaceRail } from "@/components/PlaceRail";
+import { Footer, Nav } from "@/components/Shell";
+import { DESTINATIONS, RAILS, destinationById } from "@/lib/destinations";
+import { getRecommendations } from "@/lib/recommendations";
+import { SUPPORTED_CITIES } from "@/lib/types";
 
-export default function Home() {
+export default async function Home() {
+  // The verified rails come from the same set the planner uses — one source, no duplication.
+  const verified = (await Promise.all(SUPPORTED_CITIES.map(getRecommendations))).flat();
+  const gems = verified.filter((p) => p.tag === "hidden_gem");
+  const food = verified.filter((p) => p.category === "food" || p.category === "cafe");
+
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-5 py-10">
-      <header className="mb-10">
-        <h1 className="font-display text-2xl tracking-tight text-ink">Sthānīya</h1>
-        <p className="mt-1 text-sm text-ink-faint">Travel like a local. Plan like you know the city.</p>
-      </header>
+    <>
+      <Nav />
 
-      <Planner />
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-14 px-5 py-6 sm:py-8">
+        <Hero />
 
-      <footer className="mt-16 border-t border-line pt-5 text-xs text-ink-faint">
-        Built for people with one afternoon and no local friend to ask.
-      </footer>
-    </main>
+        <section id="destinations" className="space-y-10">
+          {RAILS.map((rail) => (
+            <DestinationRail
+              key={rail.id}
+              title={rail.title}
+              blurb={rail.blurb}
+              destinations={rail.destinationIds
+                .map(destinationById)
+                .filter((d): d is NonNullable<typeof d> => Boolean(d))}
+            />
+          ))}
+        </section>
+
+        <MoodGrid />
+
+        <CategoryStrip />
+
+        <section id="gems" className="space-y-10">
+          <PlaceRail
+            title="Hidden in plain sight"
+            blurb="Places in our verified set that almost nobody visiting for the first time reaches."
+            places={gems}
+          />
+          <PlaceRail
+            title="Eat where the city eats"
+            blurb="Not the best-reviewed. The ones people go back to."
+            places={food}
+          />
+        </section>
+
+        <SurpriseMe />
+
+        <section className="rounded-3xl border border-line bg-paper-raised px-5 py-8 sm:px-10">
+          <h2 className="max-w-xl font-display text-2xl leading-tight text-ink sm:text-3xl">
+            {DESTINATIONS.length} destinations to explore, {SUPPORTED_CITIES.length} with a
+            human-checked set behind them.
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-soft">
+            We&rsquo;d rather tell you which is which than pretend we know every city equally
+            well. A destination becomes verified when a person has checked every recommendation
+            in it — not when it gets added to a list.
+          </p>
+        </section>
+      </main>
+
+      <Footer />
+    </>
   );
 }
