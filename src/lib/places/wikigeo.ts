@@ -11,7 +11,10 @@ import type { Candidate } from "./overpass";
 
 type GeoHit = { pageid: number; title: string; lat: number; lon: number };
 
-export async function fetchWikiCandidates(coords: Coords, limit = 60): Promise<Candidate[]> {
+const INSTITUTIONAL =
+  /\b(university|college|school|academy of sciences|institute|court|ministry|embassy|consulate|headquarters|bank of|hospital|clinic|archives?|library|agency|authority|corporation|company|office building|business centre|business center|police|prison|barracks|stadium|arena|hotel|nightclub|night club)\b|\(country\)|\(company\)/i;
+
+export async function fetchWikiCandidates(coords: Coords, limit = 100): Promise<Candidate[]> {
   const params = new URLSearchParams({
     action: "query",
     list: "geosearch",
@@ -36,6 +39,10 @@ export async function fetchWikiCandidates(coords: Coords, limit = 60): Promise<C
   return hits
     // Articles about administrative areas aren't places you visit.
     .filter((hit) => !/^(List of|\d{4})/.test(hit.title))
+    // Geosearch is sorted by distance, so a city centre fills up with the buildings that
+    // happen to have articles. A deployed Tbilisi draft offered a bank's headquarters, the
+    // Supreme Court and four universities to someone who asked for food and old churches.
+    .filter((hit) => !INSTITUTIONAL.test(hit.title))
     .map((hit, index) => ({
       ref: `w${index}`,
       name: hit.title,

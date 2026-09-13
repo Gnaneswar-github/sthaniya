@@ -67,8 +67,12 @@ export function ItemCard({
             <span>{durationLabel(item.durationMinutes)}</span>
             <span>·</span>
             <span>
-              {price.approx === 0 ? (
+              {/* Decide on the band, never on the amount. "Unknown" also has an estimate of
+                  zero, and testing the number made every unpriced drafted place say "Free". */}
+              {place.priceBand === "free" ? (
                 "Free"
+              ) : place.priceBand === "unknown" ? (
+                price.label
               ) : (
                 <>
                   {price.label} ·{" "}
