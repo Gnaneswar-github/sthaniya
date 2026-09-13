@@ -354,7 +354,7 @@ export function makeMoreLocal(trip: Trip, pool: Recommendation[]): TransformResu
     trip: next,
     summary:
       swaps === 0
-        ? "This trip is already about as local as our verified Pune set goes."
+        ? `This trip is already about as local as the places we have for ${trip.prefs.destination} go.`
         : `Swapped ${swaps} ${swaps === 1 ? "stop" : "stops"} for places with less tourist traffic.`,
   };
 }
@@ -376,11 +376,15 @@ export function makeCheaper(trip: Trip, pool: Recommendation[]): TransformResult
 
   const saved = before - tripCost(next);
   const currency = tripCostCurrency(next);
+  // "Unknown" costs zero in the arithmetic, so a drafted trip used to be told it was
+  // "already free to walk into" — a claim about prices nobody has checked.
+  const priced = next.days.flatMap((d) => d.items).some((item) => item.place.priceBand !== "unknown");
   return {
     trip: next,
-    summary:
-      saved <= 0
-        ? "Nothing here is costing you much — most of this trip is already free to walk into."
+    summary: !priced
+      ? "We don't have prices for these places, so we can't honestly make this cheaper yet."
+      : saved <= 0
+        ? "Nothing here is costing you much — the priced stops are already the cheapest we have."
         : `Trimmed roughly ${formatMoney({ amount: saved, currency })} by swapping paid stops for free ones.`,
   };
 }
