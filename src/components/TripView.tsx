@@ -78,14 +78,12 @@ export function TripView({
           ← Start a new trip
         </button>
 
-        <div>
-          <h2 className="font-display text-4xl leading-tight text-ink">{trip.prefs.destination}</h2>
-          <p className="mt-1 text-[15px] text-ink-soft">
-            {dayLabel(trip.days[0]?.date ?? trip.prefs.startDate)} —{" "}
-            {dayLabel(trip.days.at(-1)?.date ?? trip.prefs.endDate)} ·{" "}
-            {trip.prefs.interests.map(interestLabel).join(" · ")}
-          </p>
-        </div>
+        {/* The destination name lives in the page banner above, so this is just the detail. */}
+        <p className="text-[15px] text-ink-soft">
+          {dayLabel(trip.days[0]?.date ?? trip.prefs.startDate)} —{" "}
+          {dayLabel(trip.days.at(-1)?.date ?? trip.prefs.endDate)} ·{" "}
+          {trip.prefs.interests.map(interestLabel).join(" · ")}
+        </p>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Local score" value={`${stats.score}`} sub="out of 100" />

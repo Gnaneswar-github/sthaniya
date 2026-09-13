@@ -3,7 +3,9 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { WaveDivider } from "./PageHero";
 import { DESTINATIONS } from "@/lib/destinations/curation";
+import { PHASES } from "@/lib/phases";
 
 /** Short enough to sit on one line in the pill — a clipped placeholder reads as a bug. */
 const PLACEHOLDERS = [
@@ -65,7 +67,7 @@ export function Hero() {
   return (
     <section className="relative isolate overflow-hidden bg-deep-2">
       <Image
-        src="/hero/santorini.jpg"
+        src={PHASES.sunset.image}
         alt=""
         fill
         priority
@@ -73,14 +75,8 @@ export function Hero() {
         className="object-cover object-[60%_center]"
       />
       {/* Two passes: one to carry the text, one to seat the photo behind it. */}
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-gradient-to-r from-deep-2/95 via-deep/70 to-deep/25"
-      />
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-gradient-to-t from-deep-2/85 via-transparent to-deep-2/45"
-      />
+      <div aria-hidden className={`absolute inset-0 ${PHASES.sunset.wash}`} />
+      <div aria-hidden className={`absolute inset-0 ${PHASES.sunset.veil}`} />
 
       <div className="relative mx-auto w-full max-w-6xl px-5 pb-28 pt-14 sm:pb-36 sm:pt-20">
         <p className="rise text-[11px] font-semibold uppercase tracking-[0.28em] text-white/70">
@@ -184,23 +180,11 @@ export function Hero() {
       </div>
 
       <WaveDivider />
-    </section>
-  );
-}
 
-function WaveDivider() {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 1440 90"
-      preserveAspectRatio="none"
-      className="absolute inset-x-0 bottom-0 h-[60px] w-full text-paper sm:h-[90px]"
-    >
-      <path
-        d="M0 62c180-34 340-44 520-30 180 13 300 44 470 44 150 0 300-26 450-56V90H0Z"
-        fill="currentColor"
-      />
-    </svg>
+      <p className="pointer-events-none absolute bottom-[62px] right-3 z-10 text-[10px] text-white/45 sm:bottom-[92px]">
+        {PHASES.sunset.credit}
+      </p>
+    </section>
   );
 }
 

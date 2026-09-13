@@ -9,9 +9,8 @@ export default async function Plan({ searchParams }: PageProps<"/plan">) {
   return (
     <>
       <Nav />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-7">
-        <PlanFlow query={query} />
-      </main>
+      {/* The flow owns its own banner: the phase changes as the trip comes into being. */}
+      <PlanFlow query={query} />
       <Footer />
     </>
   );

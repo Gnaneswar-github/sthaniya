@@ -47,15 +47,6 @@ export function Understanding({
 
   return (
     <div className="space-y-5 rounded-3xl border border-line bg-paper-raised p-5 sm:p-7">
-      <div>
-        <h2 className="font-display text-2xl leading-tight text-ink sm:text-3xl">
-          Here&rsquo;s what we understood
-        </h2>
-        <p className="mt-1 text-sm text-ink-soft">
-          Change anything that&rsquo;s wrong — the trip is built from these, not from the sentence.
-        </p>
-      </div>
-
       <Row label="Destination" source={readFrom.destination}>
         {prefs.destination && (
           <p className="mb-1.5 font-display text-2xl leading-tight text-ink">{prefs.destination}</p>

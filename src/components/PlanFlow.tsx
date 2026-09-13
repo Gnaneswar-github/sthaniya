@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { PageHero } from "./PageHero";
 import { TripView } from "./TripView";
 import { Understanding } from "./Understanding";
 import { useCurrency } from "./currency/CurrencyProvider";
@@ -139,34 +140,57 @@ export function PlanFlow({ query }: { query: string }) {
       return <NotVerifiedYet destination={trip.prefs.destination} onBack={discard} />;
     }
 
-    return <TripView trip={trip} pool={pool} onChange={update} onRestart={discard} />;
+    const nights = trip.days.length;
+    return (
+      <>
+        <PageHero
+          phase="dawn"
+          eyebrow="Your trip"
+          title={trip.prefs.destination}
+          subtitle={`${nights} ${nights === 1 ? "day" : "days"}, ${trip.days.flatMap((d) => d.items).length} stops — and every one of them is yours to change.`}
+        />
+        <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-8">
+          <TripView trip={trip} pool={pool} onChange={update} onRestart={discard} />
+        </main>
+      </>
+    );
   }
 
   return (
-    <div className="rise space-y-5">
-      {query && (
-        <blockquote className="rounded-2xl border-l-2 border-brand bg-paper-raised px-4 py-3 text-[15px] leading-relaxed text-ink-soft">
-          &ldquo;{query}&rdquo;
-        </blockquote>
-      )}
+    <>
+      <PageHero
+        phase="golden"
+        eyebrow="Step two"
+        title="Here's what we"
+        accent="understood."
+        subtitle="Every field below shows the words it came from. Change anything that's wrong — the trip is built from these, not from the sentence."
+      />
 
-      <Understanding prefs={prefs} readFrom={readFrom} avoid={intent.avoid} onChange={setPrefs} />
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-5 px-5 py-8">
+        {query && (
+          <blockquote className="rise rounded-2xl border-l-2 border-gold bg-paper-raised px-4 py-3 text-[15px] leading-relaxed text-ink-soft">
+            &ldquo;{query}&rdquo;
+          </blockquote>
+        )}
 
-      {error && (
-        <p className="rounded-xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm text-ink-soft">
-          {error}
-        </p>
-      )}
+        <Understanding prefs={prefs} readFrom={readFrom} avoid={intent.avoid} onChange={setPrefs} />
 
-      <button
-        type="button"
-        onClick={build}
-        disabled={busy}
-        className="w-full rounded-xl bg-ink px-5 py-4 font-medium text-paper transition enabled:hover:bg-brand disabled:opacity-40"
-      >
-        {busy ? "Building your trip…" : "Build my trip"}
-      </button>
-    </div>
+        {error && (
+          <p className="rounded-xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm text-ink-soft">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={build}
+          disabled={busy}
+          className="w-full rounded-full bg-brand px-5 py-4 font-semibold text-white transition enabled:hover:bg-brand-bright disabled:opacity-40"
+        >
+          {busy ? "Building your trip…" : "Build my trip"}
+        </button>
+      </main>
+    </>
   );
 }
 
@@ -174,7 +198,16 @@ function NotVerifiedYet({ destination, onBack }: { destination: string; onBack: 
   const sourced = destinationByName(destination);
 
   return (
-    <div className="rise space-y-5">
+    <>
+      {/* Dusk: the honest pause in the cycle — we know the place, we can't vouch for it yet. */}
+      <PageHero
+        phase="dusk"
+        eyebrow="Not yet"
+        title={destination}
+        subtitle="A real place we know of, but not one we've checked. Here's the difference, and what we can still tell you."
+      />
+
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-5 px-5 py-8">
       <section className="rounded-3xl border border-gold/40 bg-gold/5 p-5 sm:p-7">
         <h2 className="font-display text-2xl leading-tight text-ink sm:text-3xl">
           We don&rsquo;t have {destination} verified yet
@@ -227,6 +260,7 @@ function NotVerifiedYet({ destination, onBack }: { destination: string; onBack: 
           </div>
         </section>
       )}
-    </div>
+      </main>
+    </>
   );
 }
