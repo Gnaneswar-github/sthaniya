@@ -122,16 +122,23 @@ export function PlanFlow({ query }: { query: string }) {
 
       if (places.length === 0) {
         setStage("drafting");
-        const response = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(prefs),
-        });
-        const data = (await response.json()) as {
-          places?: Recommendation[];
-          meta?: DraftMeta;
-          error?: string;
+        type Drafted = { places?: Recommendation[]; meta?: DraftMeta; error?: string };
+        const draft = async () => {
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(prefs),
+          });
+          return { res, body: (await res.json().catch(() => ({}))) as Drafted };
         };
+
+        // A busy upstream is usually clear a few seconds later. Trying once more on the
+        // traveller's behalf beats handing them an error they'd just retry themselves.
+        let { res: response, body: data } = await draft();
+        if (response.status === 502 || response.status === 503 || response.status === 504) {
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          ({ res: response, body: data } = await draft());
+        }
 
         if (!response.ok || !data.places?.length) {
           setError(data.error ?? `We couldn't put together a trip for ${prefs.destination}.`);

@@ -64,7 +64,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const { candidates, source } = await fetchGroundedCandidates(place.coords);
+    const grounded = await fetchGroundedCandidates(place.coords);
+    // Sixty is plenty to choose a few days from, and keeps one draft well inside the
+    // per-minute token allowance — ninety candidates alone ate half of it.
+    const candidates = grounded.candidates.slice(0, 60);
+    const { source } = grounded;
     if (candidates.length === 0) {
       return Response.json(
         {

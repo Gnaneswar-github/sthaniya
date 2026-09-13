@@ -80,6 +80,7 @@ export class GroqError extends Error {
   constructor(
     readonly status: number,
     readonly retryable: boolean,
+    readonly retryAfterMs?: number,
   ) {
     super(status ? `Groq responded ${status}` : "Groq returned an unreadable response");
   }
@@ -93,30 +94,44 @@ function clampDuration(value: unknown): number {
 export class GroqGenerator implements ItineraryGenerator {
   readonly name = "groq";
 
+  /**
+   * `models` is an ordered preference list. Groq rate-limits each model separately — 8,000
+   * tokens a minute apiece on this plan — so falling back to a second model turns "busy,
+   * try later" into a trip for the second traveller who arrives in the same minute.
+   */
   constructor(
     private readonly apiKey: string,
-    readonly model: string,
+    private readonly models: string[],
   ) {}
 
+  get model(): string {
+    return this.models[0];
+  }
+
   async generate(input: GenerationInput): Promise<GenerationResult> {
-    // One retry covers the failures that are genuinely transient — rate limits, a busy
-    // upstream, a truncated JSON body. Anything else fails straight away.
     let lastError: unknown;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const attempts = Math.max(3, this.models.length + 1);
+
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const model = this.models[attempt % this.models.length];
       try {
-        const result = await this.attempt(input);
-        if (result.places.length > 0 || attempt === 1) return result;
+        const result = await this.attempt(input, model);
+        if (result.places.length > 0 || attempt === attempts - 1) return result;
         lastError = new Error("Groq chose no usable places");
       } catch (error) {
         lastError = error;
         if (error instanceof GroqError && !error.retryable) throw error;
+
+        // Only wait when every model has had a turn; until then the next model is fresh.
+        const cycled = (attempt + 1) % this.models.length === 0;
+        const wait = error instanceof GroqError && error.retryAfterMs ? error.retryAfterMs : 1500;
+        if (cycled) await new Promise((resolve) => setTimeout(resolve, Math.min(wait, 10_000)));
       }
-      await new Promise((resolve) => setTimeout(resolve, 1200));
     }
     throw lastError;
   }
 
-  private async attempt(input: GenerationInput): Promise<GenerationResult> {
+  private async attempt(input: GenerationInput, model: string): Promise<GenerationResult> {
     const response = await fetch(ENDPOINT, {
       method: "POST",
       headers: {
@@ -124,20 +139,29 @@ export class GroqGenerator implements ItineraryGenerator {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: this.model,
+        model,
         messages: [
           { role: "system", content: SYSTEM },
           { role: "user", content: userPrompt(input) },
         ],
         response_format: { type: "json_object" },
+        // gpt-oss reasons before answering and those tokens count against the per-minute
+        // limit. "low" measured 23 reasoning tokens against 400 at the default, for the
+        // same choices — choosing among given places doesn't need deliberation.
+        reasoning_effort: "low",
         temperature: 0.5,
-        max_tokens: 6000,
+        max_tokens: 4000,
       }),
-      signal: AbortSignal.timeout(40_000),
+      signal: AbortSignal.timeout(35_000),
     });
 
     if (!response.ok) {
-      throw new GroqError(response.status, response.status === 429 || response.status >= 500);
+      const retryAfter = Number(response.headers.get("retry-after"));
+      throw new GroqError(
+        response.status,
+        response.status === 429 || response.status >= 500,
+        Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : undefined,
+      );
     }
 
     const payload = (await response.json()) as {
@@ -152,7 +176,7 @@ export class GroqGenerator implements ItineraryGenerator {
     } catch {
       throw new GroqError(0, true);
     }
-    return this.toRecommendations(parsed, input);
+    return this.toRecommendations(parsed, input, model);
   }
 
   /**
@@ -163,6 +187,7 @@ export class GroqGenerator implements ItineraryGenerator {
   private toRecommendations(
     parsed: { places?: RawPlace[] },
     input: GenerationInput,
+    model: string,
   ): GenerationResult {
     const byRef = new Map(input.candidates.map((c) => [c.ref, c]));
     const seen = new Set<string>();
@@ -217,12 +242,15 @@ export class GroqGenerator implements ItineraryGenerator {
       });
     }
 
-    return { places, rejected, model: this.model };
+    // The model that actually answered, which after a fallback isn't the preferred one.
+    return { places, rejected, model };
   }
 }
 
 export function createGenerator(): ItineraryGenerator | null {
   const apiKey = readEnv("GROQ_API_KEY");
   if (!apiKey) return null;
-  return new GroqGenerator(apiKey, readEnv("GROQ_MODEL") ?? "openai/gpt-oss-120b");
+  const primary = readEnv("GROQ_MODEL") ?? "openai/gpt-oss-120b";
+  const fallback = readEnv("GROQ_FALLBACK_MODEL") ?? "openai/gpt-oss-20b";
+  return new GroqGenerator(apiKey, [...new Set([primary, fallback])]);
 }
