@@ -389,7 +389,7 @@ export function SurpriseMe() {
               </>
             ) : (
               <>
-                A <Reel value={pick.mood.label.toLowerCase()} /> trip to <Reel value={pick.city.name} />
+                {article(pick.mood.label)} <Reel value={pick.mood.label.toLowerCase()} /> trip to <Reel value={pick.city.name} />
               </>
             )}
           </h2>
@@ -397,7 +397,7 @@ export function SurpriseMe() {
             {phase === "landed" ? `${pick.mood.prompt}.` : "Spin for a city and a mood. Keep it, tweak it, or spin again."}
           </p>
           <p className="sr-only" aria-live="polite">
-            {phase === "landed" ? `A ${pick.mood.label} trip to ${pick.city.name}` : ""}
+            {phase === "landed" ? `${article(pick.mood.label)} ${pick.mood.label.toLowerCase()} trip to ${pick.city.name}` : ""}
           </p>
         </div>
 
@@ -430,6 +430,9 @@ export function SurpriseMe() {
     </section>
   );
 }
+
+/** "An adventurous trip", "A slow trip" — the reel once read "A adventurous". */
+const article = (word: string) => (/^[aeiou]/i.test(word) ? "An" : "A");
 
 function Reel({ value }: { value: string }) {
   return (
