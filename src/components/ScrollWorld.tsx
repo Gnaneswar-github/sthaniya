@@ -174,31 +174,34 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
     <div ref={wrapRef} className="relative isolate bg-deep-2">
       {nav}
 
-      {/* One persistent layer for the whole story. Sticky, not fixed: it scrolls away with the
-          story, and nothing ever intercepts the wheel. */}
-      <div aria-hidden className="sticky top-0 -mb-[100svh] h-[100svh] overflow-hidden">
-        {status !== "ready" && (
-          <>
-            <Image
-              src={PHASES.sunset.image}
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-[60%_center]"
-            />
-            <div className={`absolute inset-0 ${PHASES.sunset.wash}`} />
-          </>
-        )}
-        <canvas
-          ref={canvasRef}
-          className={`absolute inset-0 h-full w-full transition-opacity duration-1000 ${
-            status === "ready" ? "opacity-100" : "opacity-0"
-          }`}
-        />
-        {/* Authored scrims keep copy legible over every time of day. */}
-        <div className="absolute inset-0 bg-gradient-to-t from-deep-2/85 via-deep-2/25 to-deep-2/35 sm:bg-gradient-to-r sm:from-deep-2/80 sm:via-deep-2/30 sm:to-transparent" />
-        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-deep-2/60 to-transparent" />
+      {/* One persistent layer for the whole story. Sticky, not fixed, so nothing intercepts the
+          wheel — and bounded by an absolute track the exact height of the story, because a
+          free sticky layer overhung the section below by a full screen at the end. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="sticky top-0 h-[100svh] overflow-hidden">
+          {status !== "ready" && (
+            <>
+              <Image
+                src={PHASES.sunset.image}
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-[60%_center]"
+              />
+              <div className={`absolute inset-0 ${PHASES.sunset.wash}`} />
+            </>
+          )}
+          <canvas
+            ref={canvasRef}
+            className={`absolute inset-0 h-full w-full transition-opacity duration-1000 ${
+              status === "ready" ? "opacity-100" : "opacity-0"
+            }`}
+          />
+          {/* Authored scrims keep copy legible over every time of day. */}
+          <div className="absolute inset-0 bg-gradient-to-t from-deep-2/85 via-deep-2/25 to-deep-2/35 sm:bg-gradient-to-r sm:from-deep-2/80 sm:via-deep-2/30 sm:to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-deep-2/60 to-transparent" />
+        </div>
       </div>
 
       {CHAPTERS.map((chapter, index) => (

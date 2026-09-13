@@ -12,7 +12,8 @@ import { parseIntent, type ParsedIntent } from "@/lib/parse-intent";
 import { buildTrip } from "@/lib/trip-engine";
 import type { Recommendation, Trip, TripPrefs } from "@/lib/types";
 
-const STORAGE_KEY = "sthaniya.trip.v3";
+// v4: trips saved before the copy rework carried their old notes with them.
+const STORAGE_KEY = "sthaniya.trip.v4";
 
 type DraftMeta = {
   destination: string;

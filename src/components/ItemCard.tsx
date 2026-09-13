@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { Amount } from "./currency/CurrencyControls";
+import { MapLink } from "./MapLink";
+import { PlaceArt } from "./PlaceArt";
 import { clockLabel, durationLabel, placeLocalScore } from "@/lib/trip-engine";
 import {
   CATEGORIES,
@@ -40,7 +42,12 @@ export function ItemCard({
           {place.photo ? (
             <Image src={place.photo.url} alt={place.name} fill sizes="128px" className="object-cover" />
           ) : (
-            <div className={`h-full bg-gradient-to-br ${style.band}`} aria-hidden />
+            <PlaceArt
+              name={place.name}
+              category={place.category}
+              glyphSize={46}
+              className="absolute inset-0 h-full w-full"
+            />
           )}
         </div>
 
@@ -55,7 +62,9 @@ export function ItemCard({
           </div>
 
           <div>
-            <h4 className="font-display text-xl leading-tight text-ink">{place.name}</h4>
+            <h4 className="font-display text-xl leading-tight text-ink">
+              <MapLink name={place.name} near={place.destination} />
+            </h4>
             <p className="text-sm text-ink-faint">{place.vibe}</p>
           </div>
 

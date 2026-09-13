@@ -29,12 +29,6 @@ export function Nav({ overHero = false }: { overHero?: boolean }) {
           <Link href="/#destinations" className={`rounded-lg px-3 py-2 text-sm transition ${link}`}>
             Explore
           </Link>
-          <Link
-            href="/#gems"
-            className={`hidden rounded-lg px-3 py-2 text-sm transition sm:block ${link}`}
-          >
-            Hidden gems
-          </Link>
 
           <span className="mx-1.5 hidden sm:block">
             <CurrencySelector onHero={overHero} />
@@ -72,9 +66,9 @@ export function Footer() {
             How we source places
           </p>
           <p className="leading-relaxed text-ink-soft">
-            Verified places are researched and checked by a person before a city goes live.
-            Everywhere else is sourced from Wikipedia and OpenStreetMap and labelled as such. We
-            don&rsquo;t invent ratings, prices or reviews.
+            Every place is a real, mapped location from OpenStreetMap and Wikipedia, with a
+            hand-checked set for some cities. We don&rsquo;t invent ratings, prices or reviews —
+            each place name opens Google Maps, where you can see its own.
           </p>
         </div>
 

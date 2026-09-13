@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ItemCard } from "./ItemCard";
+import { MapLink } from "./MapLink";
 import {
   addPlace,
   alternativesFor,
@@ -190,21 +191,28 @@ export function TripView({
                 </p>
               )}
               {unused.slice(0, 8).map((place) => (
-                <button
+                <div
                   key={place.id}
-                  type="button"
-                  onClick={() => {
-                    onChange(addPlace(trip, place, dayIndex));
-                    setAdding(null);
-                    setFlash(`Added ${place.name} to day ${dayIndex + 1}.`);
-                  }}
-                  className="flex w-full items-baseline justify-between gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-paper"
+                  className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition hover:bg-paper"
                 >
-                  <span className="text-[15px] text-ink">{place.name}</span>
-                  <span className="shrink-0 text-xs text-ink-faint">
-                    {LOCALITY_TAGS[place.tag]} · {placeLocalScore(place)}
+                  <span className="min-w-0">
+                    <MapLink name={place.name} near={place.destination} className="text-[15px] text-ink" />
+                    <span className="block text-xs text-ink-faint">
+                      {LOCALITY_TAGS[place.tag]} · {placeLocalScore(place)} local
+                    </span>
                   </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(addPlace(trip, place, dayIndex));
+                      setAdding(null);
+                      setFlash(`Added ${place.name} to day ${dayIndex + 1}.`);
+                    }}
+                    className="shrink-0 rounded-full border border-line px-3 py-1 text-xs font-medium text-ink-soft transition hover:border-brand hover:text-brand"
+                  >
+                    Add
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -264,18 +272,25 @@ function ReplacePanel({
       )}
 
       {options.map((place) => (
-        <button
+        <div
           key={place.id}
-          type="button"
-          onClick={() => onPick(place)}
-          className="block w-full rounded-xl border border-line bg-paper-raised p-3 text-left transition hover:border-brand"
+          className="flex items-center justify-between gap-3 rounded-xl border border-line bg-paper-raised p-3 transition hover:border-brand"
         >
-          <span className="font-display text-lg text-ink">{place.name}</span>
-          <span className="block text-sm text-ink-soft">{place.vibe}</span>
-          <span className="mt-1 block text-xs text-ink-faint">
-            {LOCALITY_TAGS[place.tag]} · {placeLocalScore(place)} local
+          <span className="min-w-0">
+            <MapLink name={place.name} near={place.destination} className="font-display text-lg text-ink" />
+            <span className="block text-sm text-ink-soft">{place.vibe}</span>
+            <span className="mt-1 block text-xs text-ink-faint">
+              {LOCALITY_TAGS[place.tag]} · {placeLocalScore(place)} local
+            </span>
           </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => onPick(place)}
+            className="shrink-0 rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-bright"
+          >
+            Swap in
+          </button>
+        </div>
       ))}
     </div>
   );

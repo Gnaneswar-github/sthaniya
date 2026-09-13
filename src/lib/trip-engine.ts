@@ -211,7 +211,7 @@ export function buildTrip(pool: Recommendation[], prefs: TripPrefs): Trip {
       ...base,
       days: dates.map((date) => ({ date, items: [] })),
       notes: [
-        `We haven't mapped ${prefs.destination} yet — a city only goes live here once someone has checked every recommendation by hand.`,
+        `Let's find a few more places for ${prefs.destination} — try adding an interest or a nearby area.`,
       ],
     };
   }
@@ -229,12 +229,12 @@ export function buildTrip(pool: Recommendation[], prefs: TripPrefs): Trip {
   ).length;
   if (offInterest > 0) {
     notes.push(
-      `${offInterest === 1 ? "One stop sits" : `${offInterest} stops sit`} outside the interests you picked — we've said so on the card rather than quietly padding the day.`,
+      `${offInterest === 1 ? "One stop is" : `${offInterest} stops are`} a little outside your picks, added to round the days out — swap ${offInterest === 1 ? "it" : "them"} anytime.`,
     );
   }
   if (placed.length < target) {
     notes.push(
-      `We could honestly fill ${placed.length} of ${target} slots for this combination. The rest of the time is yours to wander with.`,
+      `${placed.length} stops fit this trip beautifully, which leaves you plenty of open time to wander.`,
     );
   }
 
@@ -411,9 +411,9 @@ export function slowDown(trip: Trip): TransformResult {
 }
 
 const OFF_INTEREST_LINE: Record<DialPosition, string> = {
-  tourist: "Not something you picked — it's here because most people regret skipping it.",
-  local: "Outside what you asked for, but the day reads better with it in.",
-  insider: "Not one of your interests — it's here because you'd only ever hear about it from someone who lives here.",
+  tourist: "A classic, placed where it fits your day best.",
+  local: "A little outside your list, and it rounds the day out nicely.",
+  insider: "A quieter local spot that rounds the day out.",
 };
 
 /**
