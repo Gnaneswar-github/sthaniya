@@ -1,6 +1,6 @@
 import { CategoryStrip, DestinationRail, MoodGrid, SurpriseMe } from "@/components/DiscoverRails";
-import { Hero } from "@/components/Hero";
 import { PlaceRail } from "@/components/PlaceRail";
+import { ScrollWorld } from "@/components/ScrollWorld";
 import { Footer, Nav } from "@/components/Shell";
 import { TrustStrip } from "@/components/TrustStrip";
 import { DESTINATIONS, RAILS, destinationById } from "@/lib/destinations/curation";
@@ -15,10 +15,7 @@ export default async function Home() {
 
   return (
     <>
-      <div className="relative">
-        <Nav overHero />
-        <Hero />
-      </div>
+      <ScrollWorld nav={<Nav overHero />} />
 
       <TrustStrip />
 

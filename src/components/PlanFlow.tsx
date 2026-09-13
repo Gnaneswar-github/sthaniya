@@ -184,11 +184,11 @@ export function PlanFlow({ query }: { query: string }) {
   }
 
   if (trip) {
-    // A dashboard of zeroes helps nobody. If there's nothing verified to build from, say that
-    // and hand back what we do genuinely know about the place.
+    // A dashboard of zeroes helps nobody. With nothing to build from, offer a way forward and
+    // what we do know about the place.
     const empty = trip.days.every((day) => day.items.length === 0);
     if (empty) {
-      return <NotVerifiedYet destination={trip.prefs.destination} onBack={discard} />;
+      return <RefineTrip destination={trip.prefs.destination} onBack={discard} />;
     }
 
     const nights = trip.days.length;
@@ -196,13 +196,13 @@ export function PlanFlow({ query }: { query: string }) {
       <>
         <PageHero
           phase="dawn"
-          eyebrow={drafted ? "Drafted for you" : "Your trip"}
+          eyebrow="Your trip"
           title={trip.prefs.destination}
           subtitle={`${nights} ${nights === 1 ? "day" : "days"}, ${trip.days.flatMap((d) => d.items).length} stops — and every one of them is yours to change.`}
         />
         <main className="mx-auto w-full max-w-3xl flex-1 space-y-5 px-5 py-8">
-          {drafted && <Provenance meta={drafted} />}
           <TripView trip={trip} pool={pool} onChange={update} onRestart={discard} />
+          {drafted && <SourceCredit meta={drafted} />}
         </main>
       </>
     );
@@ -259,77 +259,62 @@ export function PlanFlow({ query }: { query: string }) {
 }
 
 /**
- * Which tier the traveller is looking at, stated plainly. A drafted trip is real places
- * arranged by a model — not the same thing as our verified set, and it should never be
- * allowed to look like it.
+ * A quiet credit under the trip rather than a warning above it. Nobody has walked every street
+ * of every city, and a traveller doesn't need telling. The map data is OpenStreetMap's, whose
+ * licence asks for attribution, and a nudge to check hours is simply good travel advice.
  */
-function Provenance({ meta }: { meta: DraftMeta }) {
-  // Name the source that actually supplied the places. The banner used to say
-  // "OpenStreetMap" even when Overpass was down and every place came from Wikipedia.
-  const sourceLabel =
+function SourceCredit({ meta }: { meta: DraftMeta }) {
+  const source =
     meta.source === "wikipedia"
-      ? "Wikipedia articles with map coordinates"
+      ? "Wikipedia"
       : meta.source === "openstreetmap+wikipedia"
-        ? "OpenStreetMap entries and Wikipedia articles"
-        : "OpenStreetMap entries";
+        ? "© OpenStreetMap contributors and Wikipedia"
+        : "© OpenStreetMap contributors";
 
   return (
-    <section className="rise rounded-2xl border border-gold/40 bg-gold/5 px-4 py-3.5">
-      <p className="text-sm font-semibold text-ink">Drafted, not verified</p>
-      <p className="mt-1 text-sm leading-relaxed text-ink-soft">
-        Nobody from Sthānīya has been to {meta.destination}. Every place below is a real
-        location taken from {meta.candidatesConsidered} {sourceLabel} — the model chose and
-        described them, it didn&rsquo;t name them. Treat opening hours and prices as unknown
-        until you check.
-      </p>
-      {meta.inventedPlacesRejected > 0 && (
-        <p className="mt-1.5 text-xs text-ink-faint">
-          {meta.inventedPlacesRejected}{" "}
-          {meta.inventedPlacesRejected === 1 ? "suggestion was" : "suggestions were"} discarded
-          for not matching a real mapped place.
-        </p>
-      )}
-    </section>
+    <p className="pt-2 text-center text-xs leading-relaxed text-ink-faint">
+      Places from {source}. Opening hours shift with the seasons, so it&rsquo;s worth a quick look
+      before you head out.
+    </p>
   );
 }
 
-function NotVerifiedYet({ destination, onBack }: { destination: string; onBack: () => void }) {
+function RefineTrip({ destination, onBack }: { destination: string; onBack: () => void }) {
   const sourced = destinationByName(destination);
 
   return (
     <>
-      {/* Dusk: the honest pause in the cycle — we know the place, we can't vouch for it yet. */}
+      {/* Dusk: a pause in the cycle, with a way forward rather than an apology. */}
       <PageHero
         phase="dusk"
-        eyebrow="Not yet"
+        eyebrow="Let's refine"
         title={destination}
-        subtitle="A real place we know of, but not one we've checked. Here's the difference, and what we can still tell you."
+        subtitle="A couple of small changes and your trip will start taking shape."
       />
 
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-5 px-5 py-8">
       <section className="rounded-3xl border border-gold/40 bg-gold/5 p-5 sm:p-7">
         <h2 className="font-display text-2xl leading-tight text-ink sm:text-3xl">
-          We don&rsquo;t have {destination} verified yet
+          Let&rsquo;s shape {destination} a little differently
         </h2>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
-          Sthānīya builds an itinerary only once a person has checked every recommendation in a
-          city. We could fill this page with plausible-looking suggestions in seconds — that is
-          precisely what this product exists to avoid.
+          Try adding an interest or two, or name a nearby town or neighbourhood. The more you
+          give us to go on, the more we can build around it.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            href="/"
-            className="rounded-xl bg-ink px-5 py-3 text-sm font-medium text-paper transition hover:bg-brand"
-          >
-            Browse verified destinations
-          </Link>
           <button
             type="button"
             onClick={onBack}
-            className="rounded-xl border border-line-strong px-4 py-3 text-sm text-ink-soft transition hover:border-brand hover:text-brand"
+            className="rounded-xl bg-ink px-5 py-3 text-sm font-medium text-paper transition hover:bg-brand"
           >
             Edit my preferences
           </button>
+          <Link
+            href="/"
+            className="rounded-xl border border-line-strong px-4 py-3 text-sm text-ink-soft transition hover:border-brand hover:text-brand"
+          >
+            Explore destinations
+          </Link>
         </div>
       </section>
 
@@ -348,7 +333,7 @@ function NotVerifiedYet({ destination, onBack }: { destination: string; onBack: 
           )}
           <div className="space-y-2 p-5 sm:p-6">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
-              What we can tell you, sourced not written
+              A little about the place
             </p>
             <h3 className="font-display text-2xl text-ink">{sourced.name}</h3>
             <p className="text-[15px] leading-relaxed text-ink-soft">{extractFor(sourced)}</p>

@@ -65,24 +65,27 @@ export function ItemCard({
             <span>{CATEGORIES[place.category]}</span>
             <span>·</span>
             <span>{durationLabel(item.durationMinutes)}</span>
-            <span>·</span>
-            <span>
-              {/* Decide on the band, never on the amount. "Unknown" also has an estimate of
-                  zero, and testing the number made every unpriced drafted place say "Free". */}
-              {place.priceBand === "free" ? (
-                "Free"
-              ) : place.priceBand === "unknown" ? (
-                price.label
-              ) : (
-                <>
-                  {price.label} ·{" "}
-                  <Amount
-                    money={{ amount: price.approx, currency: place.costCurrency ?? "USD" }}
-                    showConversion
-                  />
-                </>
-              )}
-            </span>
+            {/* Decide on the band, never on the amount: "unknown" also estimates zero, and
+                testing the number labelled every unpriced place "Free". Unpriced places simply
+                show no price line. */}
+            {place.priceBand !== "unknown" && (
+              <>
+                <span>·</span>
+                <span>
+                  {place.priceBand === "free" ? (
+                    "Free"
+                  ) : (
+                    <>
+                      {price.label} ·{" "}
+                      <Amount
+                        money={{ amount: price.approx, currency: place.costCurrency ?? "USD" }}
+                        showConversion
+                      />
+                    </>
+                  )}
+                </span>
+              </>
+            )}
             <span>·</span>
             <span>{placeLocalScore(place)} local</span>
           </div>

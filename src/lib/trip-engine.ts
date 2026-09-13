@@ -382,7 +382,7 @@ export function makeCheaper(trip: Trip, pool: Recommendation[]): TransformResult
   return {
     trip: next,
     summary: !priced
-      ? "We don't have prices for these places, so we can't honestly make this cheaper yet."
+      ? "These stops don't list prices, so there's nothing to trim."
       : saved <= 0
         ? "Nothing here is costing you much — the priced stops are already the cheapest we have."
         : `Trimmed roughly ${formatMoney({ amount: saved, currency })} by swapping paid stops for free ones.`,

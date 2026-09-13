@@ -106,6 +106,36 @@ body {
   }
 }
 
+/*
+ * Homepage scroll world: copy reveals follow the exact chapter, never the damped camera. Hidden
+ * states only apply when scripts run and motion is welcome — otherwise every word stays put.
+ */
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  .sw-chapter .sw-reveal,
+  .sw-chapter .sw-word {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(8px);
+    transition:
+      opacity 0.7s ease,
+      transform 0.8s cubic-bezier(0.2, 0.7, 0.3, 1),
+      filter 0.7s ease;
+  }
+  .sw-chapter .sw-reveal {
+    transition-delay: var(--d, 0ms);
+  }
+  .sw-chapter .sw-word {
+    display: inline-block;
+    transition-delay: calc(var(--i, 0) * 55ms);
+  }
+  .sw-chapter[data-active="true"] .sw-reveal,
+  .sw-chapter[data-active="true"] .sw-word {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
 @keyframes rise {
   from {
     opacity: 0;

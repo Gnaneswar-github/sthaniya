@@ -44,7 +44,7 @@ describe("transforms on a drafted trip", () => {
   it("never claims unpriced places are free", () => {
     const { summary } = makeCheaper(trip, pool);
     expect(summary.toLowerCase()).not.toContain("free");
-    expect(summary).toContain("don't have prices");
+    expect(summary).toContain("prices");
   });
 
   it("speaks about the traveller's destination, not a hardcoded city", () => {

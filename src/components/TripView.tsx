@@ -88,23 +88,25 @@ export function TripView({
           {trip.prefs.interests.map(interestLabel).join(" · ")}
         </p>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Costs only appear when there are prices behind them. Showing "0" would read as
+            "free", and a card announcing what we don't know helps nobody plan. */}
+        <div className={`grid gap-3 ${stats.priced ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
           <Stat label="Local score" value={`${stats.score}`} sub="out of 100" />
-          {/* Zero and unknown are different things. A drafted trip has no pricing source, and
-              showing "0" there would read as "free", which is a claim we can't make. */}
-          <Stat
-            label="Entry costs"
-            value={stats.priced ? formatMoney({ amount: stats.cost, currency: stats.currency }) : "Not known"}
-            sub={stats.priced ? "estimated" : "no pricing source"}
-          />
+          {stats.priced && (
+            <Stat
+              label="Entry costs"
+              value={formatMoney({ amount: stats.cost, currency: stats.currency })}
+              sub="estimated"
+            />
+          )}
           <Stat label="Stops" value={`${stats.stops}`} sub={`${trip.days.length} days`} />
           <Stat label="Getting around" value={durationLabel(stats.travel)} sub="allowance" />
         </div>
 
         <p className="text-xs leading-relaxed text-ink-faint">
-          Local score is derived from how we&rsquo;ve classified each place, not from scraped
-          popularity. Costs are rough entry estimates per person and exclude food, stays and
-          transport.
+          Local score reflects how each place is classified, not scraped popularity.
+          {stats.priced &&
+            " Costs are rough entry estimates per person and exclude food, stays and transport."}
         </p>
       </div>
 
@@ -114,7 +116,9 @@ export function TripView({
         </p>
         <div className="flex flex-wrap gap-2">
           <Transform onClick={() => apply(makeMoreLocal(trip, pool))}>Make it more local</Transform>
-          <Transform onClick={() => apply(makeCheaper(trip, pool))}>Make it cheaper</Transform>
+          {stats.priced && (
+            <Transform onClick={() => apply(makeCheaper(trip, pool))}>Make it cheaper</Transform>
+          )}
           <Transform onClick={() => apply(slowDown(trip))}>Slow it down</Transform>
         </div>
         {flash && <p className="pt-1 text-sm text-ink-soft">{flash}</p>}
@@ -182,7 +186,7 @@ export function TripView({
             <div className="space-y-2 rounded-2xl border border-line bg-paper-raised p-4">
               {unused.length === 0 && (
                 <p className="text-sm text-ink-faint">
-                  Every place we have verified for {trip.prefs.destination} is already in this trip.
+                  Every place we found for {trip.prefs.destination} is already in your trip.
                 </p>
               )}
               {unused.slice(0, 8).map((place) => (
@@ -254,8 +258,8 @@ function ReplacePanel({
 
       {reason && options.length === 0 && (
         <p className="text-sm text-ink-soft">
-          Nothing in our verified set fits that. Rather than offer you something worse, we&rsquo;d
-          suggest keeping this stop or removing it outright.
+          Nothing else fits that quite as well. Keep this stop, or remove it and enjoy the extra
+          time.
         </p>
       )}
 
