@@ -46,7 +46,7 @@ function buildQuery(coords: Coords, radiusMetres: number): string {
   const at = `around:${radiusMetres},${coords.lat},${coords.lng}`;
   return `[out:json][timeout:18];
 (
-  node(${at})[tourism][name];
+  node(${at})[tourism][tourism!~"^(hotel|hostel|guest_house|motel|apartment|chalet|camp_site|caravan_site|information|alpine_hut)$"][name];
   node(${at})[historic][name];
   node(${at})[amenity~"^(cafe|restaurant|marketplace|place_of_worship|theatre|arts_centre)$"][name];
   way(${at})[leisure~"^(park|garden)$"][name];
