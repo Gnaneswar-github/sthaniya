@@ -13,21 +13,30 @@
   --paper-sunken: #eeece5;
   --ink: #17222a;
   --ink-soft: #4d5c66;
-  --ink-faint: #85939c;
+  /* Quietest text that still reads at small sizes: 4.9:1 on paper. */
+  --ink-faint: #5f6d76;
   --line: #e2e0d8;
   --line-strong: #cbc8bb;
 
   /* Brand */
   --brand: #15795a;
+  /* Hover for filled green buttons: white text stays above 7:1, where brand-bright fell to 2.4:1. */
+  --brand-deep: #0f6149;
   --brand-bright: #2fbf87;
-  --gold: #a8741a;
+  /* Gold as text: 4.7:1 on paper. */
+  --gold: #946513;
   --gold-bright: #f5c164;
   --moss: #3f6b4f;
   --indigo-solid: #35506a;
+  --danger: #9a3f25;
 
   /* Hero */
   --deep: #0d2f42;
   --deep-2: #071c29;
+
+  caret-color: var(--brand);
+  scrollbar-color: var(--line-strong) transparent;
+  accent-color: var(--brand);
 }
 
 @theme inline {
@@ -40,11 +49,13 @@
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
   --color-brand-bright: var(--brand-bright);
   --color-gold: var(--gold);
   --color-gold-bright: var(--gold-bright);
   --color-moss: var(--moss);
   --color-indigo: var(--indigo-solid);
+  --color-danger: var(--danger);
   --color-deep: var(--deep);
   --color-deep-2: var(--deep-2);
 
@@ -58,16 +69,34 @@ body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Much of this UI is chips and cards, so focus has to be unmistakable. */
+::selection {
+  background: color-mix(in srgb, var(--brand-bright) 32%, transparent);
+  color: var(--ink);
+}
+
+a {
+  text-underline-offset: 0.22em;
+  text-decoration-thickness: 1px;
+}
+
+/* Much of this UI is chips and cards, so focus has to be unmistakable. The outline follows
+   each control's own radius, so pills get pill-shaped rings. */
 :where(a, button, input, textarea, select, [tabindex]):focus-visible {
   outline: 2px solid var(--brand-bright);
   outline-offset: 2px;
-  border-radius: 8px;
 }
 
+/* Carousel edges. On a phone the rail bleeds to both screen edges, so both fade; from tablet
+   up it starts flush with the page, and a left fade would only eat the first card. */
 .edge-fade {
   -webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
   mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+@media (min-width: 640px) {
+  .edge-fade {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  }
 }
 
 .rail {
@@ -225,11 +254,11 @@ body {
 }
 
 /* Numbered stops on the trip map. */
-.sth-marker-wrap {
+.nv-marker-wrap {
   background: none;
   border: 0;
 }
-.sth-marker {
+.nv-marker {
   display: grid;
   place-items: center;
   width: 28px;
@@ -241,7 +270,7 @@ body {
   box-shadow: 0 6px 14px -6px rgba(7, 28, 41, 0.65);
   transition: transform 0.2s ease;
 }
-.sth-marker.is-active {
+.nv-marker.is-active {
   transform: scale(1.35);
 }
 .leaflet-container {

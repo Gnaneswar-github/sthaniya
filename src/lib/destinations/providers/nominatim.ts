@@ -10,7 +10,7 @@ import type { Destination, DestinationKind, DestinationProvider, DestinationQuer
  */
 
 const ENDPOINT = "https://nominatim.openstreetmap.org/search";
-const USER_AGENT = "Sthaniya/0.4 (residency demo; https://github.com/Gnaneswar-github/sthaniya)";
+const USER_AGENT = "Nativa/0.4 (residency demo; https://github.com/Gnaneswar-github/sthaniya)";
 
 type NominatimHit = {
   place_id: number;

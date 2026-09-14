@@ -78,8 +78,8 @@ export function TripMap({
         const position: [number, number] = [item.place.coords!.lat, item.place.coords!.lng];
         const marker = L.marker(position, {
           icon: L.divIcon({
-            className: "sth-marker-wrap",
-            html: `<span class="sth-marker${active ? " is-active" : ""}" style="background:${color}">${stop}</span>`,
+            className: "nv-marker-wrap",
+            html: `<span class="nv-marker${active ? " is-active" : ""}" style="background:${color}">${stop}</span>`,
             iconSize: [28, 28],
             iconAnchor: [14, 14],
           }),

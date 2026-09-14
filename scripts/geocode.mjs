@@ -22,7 +22,7 @@ const QUERIES = {
 for (const [id, query] of Object.entries(QUERIES)) {
   const params = new URLSearchParams({ q: query, format: "jsonv2", limit: "1" });
   const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-    headers: { "User-Agent": "Sthaniya/0.2 (residency demo; https://github.com/Gnaneswar-github/sthaniya)" },
+    headers: { "User-Agent": "Nativa/0.2 (residency demo; https://github.com/Gnaneswar-github/sthaniya)" },
   });
 
   if (!response.ok) {

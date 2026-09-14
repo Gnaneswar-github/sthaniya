@@ -9,6 +9,10 @@ import { supabase } from "@/lib/supabase";
 
 type Mode = "signin" | "signup";
 
+const labelClass = "text-sm font-medium text-ink-soft";
+const fieldClass =
+  "w-full rounded-2xl border border-line bg-paper px-4 py-3 text-[15px] text-ink outline-none transition placeholder:text-ink-faint focus:border-brand";
+
 /**
  * Sign in, create an account, or get a one-time email link — and, once signed in, a name and a
  * way out. Passwords go straight to Supabase Auth; this app never sees or stores them.
@@ -73,7 +77,7 @@ export function AccountPanel() {
 
   async function emailLink() {
     if (!supabase || !email) {
-      setMessage({ tone: "error", text: "Add your email first." });
+      setMessage({ tone: "error", text: "Add your email above first, and we'll send the link there." });
       return;
     }
     setBusy(true);
@@ -87,39 +91,43 @@ export function AccountPanel() {
     return <SignedIn email={user.email ?? ""} initialName={displayNameOf(user)} onSignOut={() => router.refresh()} />;
   }
 
-  const field = "w-full rounded-2xl border border-line bg-paper px-4 py-3 text-[15px] text-ink outline-none transition focus:border-brand";
-
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 rounded-full bg-paper-sunken p-1 text-sm font-semibold">
+      <div className="grid grid-cols-2 rounded-full bg-paper-sunken p-1 text-sm font-semibold" role="group" aria-label="Account options">
         {(["signin", "signup"] as const).map((option) => (
           <button
             key={option}
             type="button"
-            onClick={() => setMode(option)}
+            onClick={() => {
+              setMode(option);
+              setMessage(null);
+            }}
             aria-pressed={mode === option}
-            className={`rounded-full py-2 transition ${mode === option ? "bg-paper-raised text-ink shadow-sm" : "text-ink-faint"}`}
+            className={`rounded-full py-2.5 transition ${mode === option ? "bg-paper-raised text-ink shadow-sm" : "text-ink-soft hover:text-ink"}`}
           >
             {option === "signin" ? "Sign in" : "Create account"}
           </button>
         ))}
       </div>
 
-      <form onSubmit={submit} className="space-y-3">
+      <form onSubmit={submit} className="space-y-4">
         {mode === "signup" && (
           <label className="block space-y-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Your name</span>
-            <input className={field} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="What friends call you" />
+            <span className={labelClass}>Your name</span>
+            <input className={fieldClass} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="What friends call you" />
           </label>
         )}
         <label className="block space-y-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Email</span>
-          <input className={field} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+          <span className={labelClass}>Email</span>
+          <input className={fieldClass} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Password</span>
+          <span className="flex items-baseline justify-between gap-2">
+            <span className={labelClass}>Password</span>
+            {mode === "signup" && <span className="text-xs text-ink-faint">At least 8 characters</span>}
+          </span>
           <input
-            className={field}
+            className={fieldClass}
             type="password"
             required
             minLength={8}
@@ -131,7 +139,7 @@ export function AccountPanel() {
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-full bg-brand px-5 py-3.5 font-semibold text-white transition enabled:hover:bg-brand-bright disabled:opacity-60"
+          className="w-full rounded-full bg-brand px-5 py-3.5 font-semibold text-white transition enabled:hover:bg-brand-deep enabled:active:scale-[0.99] disabled:opacity-60"
         >
           {busy ? "One moment…" : mode === "signup" ? "Create my account" : "Sign in"}
         </button>
@@ -145,13 +153,13 @@ export function AccountPanel() {
         type="button"
         onClick={emailLink}
         disabled={busy}
-        className="w-full rounded-full border border-line bg-paper-raised px-5 py-3 text-sm font-semibold text-ink transition hover:border-brand hover:text-brand"
+        className="w-full rounded-full border border-line bg-paper-raised px-5 py-3 text-sm font-semibold text-ink transition enabled:hover:border-brand enabled:hover:text-brand disabled:opacity-60"
       >
         Email me a one-time sign-in link
       </button>
 
       {message && (
-        <p role="status" className={`rounded-2xl px-4 py-3 text-sm ${message.tone === "ok" ? "bg-brand/8 text-brand" : "bg-[#b5573a]/10 text-[#8f3f28]"}`}>
+        <p role="status" className={`rounded-2xl px-4 py-3 text-sm ${message.tone === "ok" ? "bg-brand/10 text-brand-deep" : "bg-danger/10 text-danger"}`}>
           {message.text}
         </p>
       )}
@@ -174,11 +182,11 @@ function SignedIn({ email, initialName, onSignOut }: { email: string; initialNam
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Signed in as</p>
+        <p className={labelClass}>Signed in as</p>
         <p className="text-lg text-ink">{email}</p>
       </div>
       <label className="block space-y-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Name shown to people you plan with</span>
+        <span className={labelClass}>Name shown to people you plan with</span>
         <div className="flex gap-2">
           <input
             value={name}
@@ -186,15 +194,15 @@ function SignedIn({ email, initialName, onSignOut }: { email: string; initialNam
               setName(e.target.value);
               setSaved(false);
             }}
-            className="flex-1 rounded-2xl border border-line bg-paper px-4 py-3 text-[15px] text-ink outline-none focus:border-brand"
+            className={`${fieldClass} flex-1`}
           />
-          <button type="button" onClick={saveName} className="rounded-full bg-ink px-5 text-sm font-semibold text-paper">
+          <button type="button" onClick={saveName} className="rounded-full bg-ink px-5 text-sm font-semibold text-paper transition hover:bg-brand-deep">
             {saved ? "Saved" : "Save"}
           </button>
         </div>
       </label>
       <div className="flex flex-wrap gap-2">
-        <Link href="/trips" className="rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white">
+        <Link href="/trips" className="rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-deep">
           My trips
         </Link>
         <button

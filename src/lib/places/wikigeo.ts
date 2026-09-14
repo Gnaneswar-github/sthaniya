@@ -27,7 +27,7 @@ export async function fetchWikiCandidates(coords: Coords, limit = 100): Promise<
 
   const response = await fetch(`https://en.wikipedia.org/w/api.php?${params}`, {
     headers: {
-      "User-Agent": "Sthaniya/0.7 (residency demo; https://github.com/Gnaneswar-github/sthaniya)",
+      "User-Agent": "Nativa/0.7 (residency demo; https://github.com/Gnaneswar-github/sthaniya)",
     },
     next: { revalidate: 86_400 },
     signal: AbortSignal.timeout(8000),

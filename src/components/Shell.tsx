@@ -8,7 +8,7 @@ import { CurrencySelector } from "./currency/CurrencyControls";
  * page gets the solid paper treatment.
  */
 export function Nav({ overHero = false }: { overHero?: boolean }) {
-  const link = overHero ? "text-white/80 hover:text-white" : "text-ink-soft hover:text-brand";
+  const link = overHero ? "text-white/85 hover:text-white" : "text-ink-soft hover:text-brand";
 
   return (
     <header
@@ -18,17 +18,18 @@ export function Nav({ overHero = false }: { overHero?: boolean }) {
           : "sticky top-0 z-30 border-b border-line/80 bg-paper/90 backdrop-blur"
       }
     >
-      <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4">
-        <Link href="/" aria-label="Sthānīya home">
+      <nav className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4">
+        <Link href="/" aria-label="Nativa home" className="shrink-0">
           <Wordmark
             markClassName={`h-7 w-7 ${overHero ? "text-brand-bright" : "text-brand"}`}
             textClassName={`font-display text-xl tracking-tight ${overHero ? "text-white" : "text-ink"}`}
           />
         </Link>
 
-        <div className="flex items-center gap-1">
-          <Link href="/destinations" className={`rounded-lg px-3 py-2 text-sm transition ${link}`}>
-            City guides
+        <div className="flex min-w-0 items-center gap-0.5 sm:gap-1">
+          <Link href="/destinations" className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-sm transition sm:px-3 ${link}`}>
+            <span className="sm:hidden">Guides</span>
+            <span className="hidden sm:inline">City guides</span>
           </Link>
 
           <span className="mx-1.5 hidden sm:block">
@@ -39,11 +40,9 @@ export function Nav({ overHero = false }: { overHero?: boolean }) {
 
           <Link
             href="/plan"
-            className={
-              overHero
-                ? "rounded-full bg-white px-4 py-2 text-sm font-semibold text-deep transition hover:bg-gold-bright"
-                : "rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-bright"
-            }
+            className={`ml-1 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${
+              overHero ? "bg-white text-deep hover:bg-gold-bright" : "bg-brand text-white hover:bg-brand-deep"
+            }`}
           >
             Plan a trip
           </Link>
@@ -65,9 +64,7 @@ export function Footer() {
         </div>
 
         <div className="space-y-2 text-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
-            How we source places
-          </p>
+          <h2 className="font-semibold text-ink">How we source places</h2>
           <p className="leading-relaxed text-ink-soft">
             Every place is a real, mapped location from OpenStreetMap and Wikipedia, with a
             hand-checked set for some cities. We don&rsquo;t invent ratings, prices or reviews —
@@ -76,7 +73,7 @@ export function Footer() {
         </div>
 
         <div className="space-y-2 text-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Credits</p>
+          <h2 className="font-semibold text-ink">Credits</h2>
           <p className="leading-relaxed text-ink-soft">
             Photography from Wikimedia Commons under Creative Commons licences, credited on each
             image. Hero: Santorini by Sidvics, CC BY-SA 4.0. Geocoding by OpenStreetMap

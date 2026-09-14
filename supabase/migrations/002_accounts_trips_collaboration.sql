@@ -1,4 +1,4 @@
--- Sthānīya: accounts, trips synced across devices, and planning together.
+-- Nativa: accounts, trips synced across devices, and planning together.
 -- Run once in the Supabase SQL editor. Safe to re-run: every statement is idempotent.
 
 create extension if not exists pgcrypto;

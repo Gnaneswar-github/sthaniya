@@ -3,7 +3,7 @@ import { clockLabel } from "./trip-engine";
 import type { ItineraryItem, Trip } from "./types";
 
 /**
- * Getting a trip out of Sthānīya and into the tools people already travel with: their calendar,
+ * Getting a trip out of Nativa and into the tools people already travel with: their calendar,
  * Google Maps directions, and a message they can paste to whoever they're travelling with.
  */
 
@@ -33,14 +33,14 @@ function fold(line: string): string {
 
 export function tripToIcs(trip: Trip): string {
   const stamp = icsDateTime(new Date().toISOString().slice(0, 10), new Date().getUTCHours() * 60);
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Sthaniya//Trip//EN", "CALSCALE:GREGORIAN"];
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Nativa//Trip//EN", "CALSCALE:GREGORIAN"];
 
   trip.days.forEach((day) => {
     day.items.forEach((item) => {
       const place = item.place;
       lines.push(
         "BEGIN:VEVENT",
-        `UID:${item.itemId}@sthaniya`,
+        `UID:${item.itemId}@nativa`,
         `DTSTAMP:${stamp}`,
         `DTSTART:${icsDateTime(day.date, item.startMinutes)}`,
         `DTEND:${icsDateTime(day.date, item.startMinutes + item.durationMinutes)}`,
@@ -88,5 +88,5 @@ export function tripToText(trip: Trip): string {
     const stops = day.items.map((item) => `• ${clockLabel(item.startMinutes)}  ${item.place.name}`).join("\n");
     return `Day ${index + 1} · ${date}\n${stops || "• Free day"}`;
   });
-  return [header, ...body, "Planned with Sthānīya"].join("\n\n");
+  return [header, ...body, "Planned with Nativa"].join("\n\n");
 }

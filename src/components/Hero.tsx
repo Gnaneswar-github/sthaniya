@@ -95,7 +95,7 @@ export function HeroPrompt() {
         <button
           type="button"
           onClick={() => (text.trim() ? go(text) : areaRef.current?.focus())}
-          className="w-full shrink-0 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-bright sm:w-auto sm:px-6"
+          className="w-full shrink-0 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:bg-brand-deep active:scale-[0.98] sm:w-auto sm:px-6"
         >
           Build my journey
         </button>

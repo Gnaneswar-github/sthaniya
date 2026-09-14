@@ -11,7 +11,7 @@ const CATEGORIES: Category[] = ["food", "cafe", "temple", "sight", "museum", "ma
 const TAGS: LocalityTag[] = ["tourist_essential", "local_favourite", "hidden_gem"];
 const INTEREST_IDS = INTERESTS.map((i) => i.id) as Interest[];
 
-const SYSTEM = `You are a local guide writing for Sthānīya, a travel planner whose entire premise is that it does not invent places.
+const SYSTEM = `You are a local guide writing for Nativa, a travel planner whose entire premise is that it does not invent places.
 
 Absolute rules:
 - You may ONLY use places from the CANDIDATES list. Never add a place from your own knowledge, however famous. If a candidate list has no good restaurant, return fewer places.

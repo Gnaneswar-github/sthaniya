@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowRightIcon, DropletIcon } from "@/components/icons";
 import { PinIcon } from "@/components/MapLink";
 import { WaveDivider } from "@/components/PageHero";
 import { Footer, Nav } from "@/components/Shell";
@@ -23,7 +24,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const guide = guideBySlug((await params).slug);
   if (!guide) return {};
-  const title = `${guide.name} travel guide: weather by month and a local trip plan | Sthānīya`;
+  const title = `${guide.name} travel guide: weather by month and a local trip plan | Nativa`;
   const description = `Plan ${guide.name} like a local: real, mapped places arranged around your season, pace and interests. ${firstSentences(guide.extract, 1)}`.slice(0, 160);
   return {
     title,
@@ -63,15 +64,14 @@ export default async function GuidePage({ params }: Props) {
         <Image src={guide.photo} alt={guide.name} fill priority sizes="100vw" className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-r from-deep-2/95 via-deep-2/65 to-deep-2/20" />
         <div className="relative mx-auto w-full max-w-6xl px-5 pb-28 pt-16 sm:pb-36 sm:pt-24">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-gold-bright/90">City guide</p>
-          <h1 className="mt-3 max-w-3xl font-display text-5xl font-semibold leading-[1.02] text-white sm:text-7xl">{guide.name}</h1>
-          <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/80 sm:text-lg">{firstSentences(guide.extract, 1)}</p>
+          <h1 className="max-w-3xl text-balance font-display text-5xl font-semibold leading-[1.02] text-white sm:text-7xl">{guide.name}</h1>
+          <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/85 sm:text-lg">{firstSentences(guide.extract, 1)}</p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link
               href={`/plan?q=${encodeURIComponent(`3 days in ${guide.name}`)}`}
-              className="rounded-full bg-gold-bright px-6 py-3.5 text-sm font-semibold text-deep transition hover:bg-white"
+              className="inline-flex items-center gap-2 rounded-full bg-gold-bright px-6 py-3.5 text-sm font-semibold text-deep transition hover:bg-white"
             >
-              Plan 3 days in {guide.name} →
+              Plan 3 days in {guide.name} <ArrowRightIcon />
             </Link>
             <a
               href={googleMapsUrl(guide.name)}
@@ -84,20 +84,20 @@ export default async function GuidePage({ params }: Props) {
           </div>
         </div>
         <WaveDivider />
-        <p className="pointer-events-none absolute bottom-[62px] right-3 z-10 text-[10px] text-white/50 sm:bottom-[92px]">
+        <p className="pointer-events-none absolute bottom-[62px] right-3 z-10 text-[10px] text-white/55 sm:bottom-[92px]">
           Photo: {guide.credit}
         </p>
       </section>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 space-y-14 px-5 py-12">
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-16 px-5 py-12">
         <section className="grid gap-8 lg:grid-cols-12">
           <div className="space-y-3 lg:col-span-7">
             <h2 className="font-display text-3xl text-ink">About {guide.name}</h2>
-            <p className="text-[15px] leading-relaxed text-ink-soft">{guide.extract}</p>
+            <p className="max-w-prose text-[15px] leading-relaxed text-ink-soft">{guide.extract}</p>
             {guide.wikipediaUrl && (
               <p className="text-xs text-ink-faint">
                 Summary from{" "}
-                <a href={guide.wikipediaUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-brand">
+                <a href={guide.wikipediaUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-brand">
                   Wikipedia
                 </a>
                 , CC BY-SA.
@@ -113,7 +113,7 @@ export default async function GuidePage({ params }: Props) {
               </div>
               <ul className="space-y-1.5">
                 {climate.months.map((m) => (
-                  <li key={m.month} className="grid grid-cols-[2.5rem_1fr_4.5rem] items-center gap-3 text-xs">
+                  <li key={m.month} className="grid grid-cols-[2.25rem_1fr_auto] items-center gap-3 text-xs">
                     <span className="font-medium text-ink-soft">{MONTHS[m.month]}</span>
                     <span className="relative h-2 rounded-full bg-paper-sunken">
                       <span
@@ -121,8 +121,15 @@ export default async function GuidePage({ params }: Props) {
                         style={{ left: `${((m.low - coldest) / span) * 100}%`, right: `${100 - ((m.high - coldest) / span) * 100}%` }}
                       />
                     </span>
-                    <span className="text-right tabular-nums text-ink-faint">
-                      {m.low}°–{m.high}° · {m.rainyDays}☂
+                    <span className="flex items-center justify-end gap-1.5 tabular-nums text-ink-soft">
+                      <span className="w-[3.25rem] text-right">
+                        {m.low}°–{m.high}°
+                      </span>
+                      <span className="inline-flex w-8 items-center justify-end gap-0.5 text-ink-faint" title={`${m.rainyDays} rainy days`}>
+                        {m.rainyDays}
+                        <DropletIcon className="h-3 w-3 text-[#3f7fa0]" />
+                        <span className="sr-only"> rainy days</span>
+                      </span>
                     </span>
                   </li>
                 ))}
@@ -136,21 +143,23 @@ export default async function GuidePage({ params }: Props) {
 
         <section className="space-y-5">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand">Trip ideas</p>
-            <h2 className="mt-1.5 font-display text-3xl text-ink sm:text-4xl">{guide.name}, your way</h2>
+            <h2 className="font-display text-3xl text-ink sm:text-4xl">{guide.name}, your way</h2>
+            <p className="mt-1.5 text-[15px] text-ink-soft">Pick the kind of trip — we&rsquo;ll build it from real places.</p>
           </div>
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {MOODS.map((mood) => (
               <li key={mood.id}>
                 <Link
                   href={`/plan?q=${encodeURIComponent(`${mood.prompt} in ${guide.name}`)}`}
-                  className="lift block h-full rounded-3xl border border-line bg-paper-raised p-5"
+                  className="lift group flex h-full flex-col rounded-3xl border border-line bg-paper-raised p-5 transition-colors hover:border-brand/40"
                 >
                   <span className="block font-display text-xl text-ink">
                     {mood.label} {guide.name}
                   </span>
-                  <span className="mt-1.5 block text-sm leading-relaxed text-ink-soft">{mood.prompt}.</span>
-                  <span className="mt-3 block text-xs font-semibold text-brand">Build this trip →</span>
+                  <span className="mt-1.5 block flex-1 text-sm leading-relaxed text-ink-soft">{mood.prompt}.</span>
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand">
+                    Build this trip <ArrowRightIcon className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+                  </span>
                 </Link>
               </li>
             ))}

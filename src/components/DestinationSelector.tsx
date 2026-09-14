@@ -2,16 +2,19 @@
 
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
+import { CheckIcon } from "./icons";
 import { KIND_LABEL, type Destination } from "@/lib/destinations/types";
+import { readMigrated } from "@/lib/trip-storage";
 
-const RECENTS_KEY = "sthaniya.recentDestinations";
+const RECENTS_KEY = "nativa.recentDestinations";
+const LEGACY_RECENTS_KEY = "sthaniya.recentDestinations";
 const MAX_RECENTS = 5;
 
 type Status = "idle" | "loading" | "ready" | "error";
 
 function readRecents(): Destination[] {
   try {
-    const raw = window.localStorage.getItem(RECENTS_KEY);
+    const raw = readMigrated(RECENTS_KEY, LEGACY_RECENTS_KEY);
     return raw ? (JSON.parse(raw) as Destination[]) : [];
   } catch {
     return [];
@@ -155,7 +158,7 @@ export function DestinationSelector({
           className="absolute z-40 mt-1 w-full overflow-hidden rounded-2xl border border-line bg-paper-raised shadow-[0_18px_44px_-26px_rgba(32,27,23,0.65)]"
         >
           {!searching && (
-            <p className="border-b border-line px-4 py-2 text-[11px] uppercase tracking-wide text-ink-faint">
+            <p className="border-b border-line px-4 py-2 text-xs font-medium text-ink-faint">
               {recents.length > 0 ? "Recent searches" : "Start somewhere"}
             </p>
           )}
@@ -199,8 +202,8 @@ export function DestinationSelector({
                       <span className="flex items-baseline gap-2">
                         <span className="truncate text-[15px] text-ink">{destination.name}</span>
                         {destination.verified && (
-                          <span className="shrink-0 text-[10px] font-semibold text-moss">
-                            ✓ Verified
+                          <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] font-semibold text-moss">
+                            <CheckIcon className="h-3 w-3" /> Verified
                           </span>
                         )}
                       </span>

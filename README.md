@@ -1,4 +1,4 @@
-# Sthānīya
+# Nativa
 
 *Travel like a local. Explore like a global.*
 

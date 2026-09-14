@@ -1,4 +1,4 @@
--- Sthānīya recommendation store.
+-- Nativa recommendation store.
 -- Run this in the Supabase SQL editor (Dashboard → SQL Editor → New query).
 
 create table if not exists recommendations (

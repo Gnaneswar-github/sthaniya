@@ -23,7 +23,7 @@ const DESTINATIONS = {
   pune: { title: "Pune", commons: "Pune city" },
 };
 
-const UA = { "User-Agent": "Sthaniya/0.3 (residency demo; https://github.com/Gnaneswar-github/sthaniya)" };
+const UA = { "User-Agent": "Nativa/0.3 (residency demo; https://github.com/Gnaneswar-github/sthaniya)" };
 const OUT = new URL("../public/destinations/", import.meta.url);
 await mkdir(OUT, { recursive: true });
 

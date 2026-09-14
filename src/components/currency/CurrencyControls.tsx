@@ -135,9 +135,11 @@ export function CurrencyInput({
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor={inputId} className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
-        {label}
-      </label>
+      {label ? (
+        <label htmlFor={inputId} className="text-sm font-semibold text-ink">
+          {label}
+        </label>
+      ) : null}
       <input
         id={inputId}
         value={text}

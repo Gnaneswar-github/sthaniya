@@ -5,7 +5,7 @@
  * Usage: node scripts/find-hero.mjs "santorini oia sunset" "kyoto street evening"
  */
 
-const UA = { "User-Agent": "Sthaniya/0.5 (residency demo; https://github.com/Gnaneswar-github/sthaniya)" };
+const UA = { "User-Agent": "Nativa/0.5 (residency demo; https://github.com/Gnaneswar-github/sthaniya)" };
 
 async function search(term) {
   const params = new URLSearchParams({

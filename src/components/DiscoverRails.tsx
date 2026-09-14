@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { ArrowRightIcon } from "./icons";
 import { PinIcon } from "./MapLink";
 import { PlaceArt } from "./PlaceArt";
 import { DESTINATIONS, MOODS } from "@/lib/destinations/curation";
@@ -77,8 +78,8 @@ export function WhereNext({ destinations }: { destinations: Destination[] }) {
     <section id="destinations" className="scroll-mt-24 space-y-5" aria-roledescription="carousel" aria-label="Destinations to plan">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand">Fresh picks today</p>
-          <h2 className="mt-1.5 font-display text-3xl leading-tight text-ink sm:text-4xl">Where to next?</h2>
+          <h2 className="font-display text-3xl leading-tight text-ink sm:text-4xl">Where to next?</h2>
+          <p className="mt-1.5 text-[15px] text-ink-soft">A fresh set of places, changed every day.</p>
         </div>
         <div className="flex items-center gap-2">
           <p className="mr-1 hidden text-sm text-ink-faint sm:block">Drag, swipe or use the arrows</p>
@@ -127,7 +128,7 @@ function ArrowButton({ direction, onClick }: { direction: 1 | -1; onClick: () =>
       type="button"
       onClick={onClick}
       aria-label={direction === 1 ? "Next destinations" : "Previous destinations"}
-      className="grid h-11 w-11 place-items-center rounded-full border border-line bg-paper-raised text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-brand hover:bg-brand hover:text-white"
+      className="grid h-11 w-11 place-items-center rounded-full border border-line bg-paper-raised text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-brand hover:bg-brand hover:text-white active:translate-y-0"
     >
       <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
         <path d={direction === 1 ? "M9 5l7 7-7 7" : "M15 5l-7 7 7 7"} />
@@ -163,11 +164,11 @@ export function DestinationCard({ destination }: { destination: Destination }) {
           <div className="absolute inset-x-0 bottom-0 p-4">
             <h3 className="font-display text-2xl leading-tight text-white">{destination.name}</h3>
             {destination.countryName && <p className="text-sm text-white/75">{destination.countryName}</p>}
-            <span className="mt-3 inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/25 backdrop-blur transition group-hover:bg-gold-bright group-hover:text-deep group-hover:ring-gold-bright">
-              Plan a trip <span aria-hidden>→</span>
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/25 backdrop-blur transition group-hover:bg-gold-bright group-hover:text-deep group-hover:ring-gold-bright">
+              Plan a trip <ArrowRightIcon className="h-3 w-3" />
             </span>
             {destination.thumbnailCredit && (
-              <p className="mt-2 truncate text-[9px] text-white/55">Photo: {destination.thumbnailCredit}</p>
+              <p className="mt-2 truncate text-[10px] text-white/60">Photo: {destination.thumbnailCredit}</p>
             )}
           </div>
         </div>
@@ -238,10 +239,9 @@ export function MoodGrid() {
     <section className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-brand">Start with a feeling</p>
-          <h2 className="mt-1.5 font-display text-3xl leading-tight text-ink sm:text-4xl">What kind of trip?</h2>
+          <h2 className="font-display text-3xl leading-tight text-ink sm:text-4xl">What kind of trip?</h2>
+          <p className="mt-1.5 text-[15px] text-ink-soft">Pick a mood — we&rsquo;ll write the first line for you.</p>
         </div>
-        <p className="text-sm text-ink-faint">Pick a mood — we&rsquo;ll write the first line for you.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
@@ -290,7 +290,7 @@ function MoodTile({ mood }: { mood: (typeof MOODS)[number] }) {
       />
       <span aria-hidden className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 transition-transform duration-700 group-hover:scale-[1.8]" />
 
-      <span className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/25 backdrop-blur transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
+      <span className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white/15 ring-1 ring-white/25 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
         <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
           {look.glyph.map((d) => (
             <path key={d} d={d} />
@@ -302,15 +302,15 @@ function MoodTile({ mood }: { mood: (typeof MOODS)[number] }) {
         <span className="block font-display text-2xl leading-tight sm:text-[1.7rem]">{mood.label}</span>
         <span className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-medium text-white/90 transition duration-300 sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 sm:group-focus-visible:translate-y-0 sm:group-focus-visible:opacity-100">
           {look.words.map((word) => (
-            <span key={word} className="rounded-full bg-white/15 px-2 py-0.5 backdrop-blur">
+            <span key={word} className="rounded-full bg-white/15 px-2 py-0.5">
               {word}
             </span>
           ))}
         </span>
       </span>
 
-      <span aria-hidden className="absolute right-5 top-5 translate-x-2 text-xl opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100">
-        →
+      <span aria-hidden className="absolute right-5 top-5 translate-x-2 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100">
+        <ArrowRightIcon className="h-5 w-5" />
       </span>
     </Link>
   );
@@ -379,13 +379,10 @@ export function SurpriseMe() {
 
       <div className="relative grid gap-7 px-6 py-10 sm:px-10 sm:py-12 md:grid-cols-[1fr_auto] md:items-center">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gold-bright/90">
-            {phase === "landed" ? "Your wildcard trip" : "Can't decide?"}
-          </p>
-          <h2 className="mt-2 font-display text-3xl leading-tight sm:text-5xl">
+          <h2 className="text-balance font-display text-3xl leading-tight sm:text-5xl">
             {phase === "idle" ? (
               <>
-                Let the map <span className="text-gold-bright">choose.</span>
+                Can&rsquo;t decide? Let the map <span className="text-gold-bright">choose.</span>
               </>
             ) : (
               <>
@@ -393,7 +390,7 @@ export function SurpriseMe() {
               </>
             )}
           </h2>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/75">
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/80">
             {phase === "landed" ? `${pick.mood.prompt}.` : "Spin for a city and a mood. Keep it, tweak it, or spin again."}
           </p>
           <p className="sr-only" aria-live="polite">
@@ -406,16 +403,16 @@ export function SurpriseMe() {
             <button
               type="button"
               onClick={() => router.push(planHref)}
-              className="rounded-full bg-gold-bright px-6 py-3.5 text-sm font-semibold text-deep transition hover:scale-[1.03] hover:bg-white"
+              className="inline-flex items-center gap-2 rounded-full bg-gold-bright px-6 py-3.5 text-sm font-semibold text-deep transition hover:scale-[1.03] hover:bg-white active:scale-100"
             >
-              Plan this trip →
+              Plan this trip <ArrowRightIcon />
             </button>
           )}
           <button
             type="button"
             onClick={spin}
             disabled={phase === "spinning"}
-            className={`inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold transition enabled:hover:scale-[1.03] disabled:opacity-70 ${
+            className={`inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-semibold transition enabled:hover:scale-[1.03] enabled:active:scale-100 disabled:opacity-70 ${
               phase === "landed" ? "bg-white/10 text-white ring-1 ring-white/30 hover:bg-white/20" : "bg-gold-bright text-deep hover:bg-white"
             }`}
           >

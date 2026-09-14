@@ -91,7 +91,7 @@ async function query(endpoint: string, body: string, signal: AbortSignal): Promi
   const response = await fetch(`${endpoint}?data=${encodeURIComponent(body)}`, {
     headers: {
       Accept: "application/json",
-      "User-Agent": "Sthaniya/0.7 (residency demo; https://github.com/Gnaneswar-github/sthaniya)",
+      "User-Agent": "Nativa/0.7 (residency demo; https://github.com/Gnaneswar-github/sthaniya)",
     },
     // Cached for a week per query. The map around a city barely changes, and this turns the
     // slowest step of every trip — often 10–25 seconds — into a one-off per destination.

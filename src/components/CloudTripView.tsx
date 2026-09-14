@@ -139,7 +139,6 @@ export function CloudTripView({ id }: { id: string }) {
     <>
       <PageHero
         phase="dawn"
-        eyebrow={members.length > 1 ? "Planning together" : "Your trip"}
         title={trip.prefs.destination}
         subtitle={`${trip.days.length} ${trip.days.length === 1 ? "day" : "days"}, ${trip.days.flatMap((d) => d.items).length} stops — saved to your account.`}
       />

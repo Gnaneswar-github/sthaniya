@@ -19,13 +19,13 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "Sthānīya — travel like a local",
+  title: "Nativa — travel like a local",
   description:
     "Tell us where you're going, how long you have and what you're into. Get a short, honest plan instead of a top-10 list.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f7f2ea",
+  themeColor: "#f7f6f2",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

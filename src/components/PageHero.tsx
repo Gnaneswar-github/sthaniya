@@ -8,7 +8,6 @@ import { PHASES, type Phase } from "@/lib/phases";
  */
 export function PageHero({
   phase,
-  eyebrow,
   title,
   accent,
   subtitle,
@@ -16,7 +15,6 @@ export function PageHero({
   size = "compact",
 }: {
   phase: Phase;
-  eyebrow: string;
   title: string;
   /** Second line, set in the phase's accent colour. */
   accent?: string;
@@ -44,13 +42,7 @@ export function PageHero({
           size === "tall" ? "pb-32 pt-16 sm:pb-36 sm:pt-20" : "pb-24 pt-14 sm:pb-32 sm:pt-16"
         }`}
       >
-        <p
-          className={`rise text-[11px] font-semibold uppercase tracking-[0.28em] ${spec.eyebrow}`}
-        >
-          {eyebrow}
-        </p>
-
-        <h1 className="rise rise-1 mt-3 max-w-3xl font-display text-[2.1rem] font-semibold leading-[1.06] text-white sm:text-5xl">
+        <h1 className="rise max-w-3xl text-balance font-display text-[2.1rem] font-semibold leading-[1.06] text-white sm:text-5xl">
           {title}
           {accent && (
             <>
@@ -61,30 +53,31 @@ export function PageHero({
         </h1>
 
         {subtitle && (
-          <p className="rise rise-2 mt-3 max-w-xl text-[15px] leading-relaxed text-white/75">
+          <p className="rise rise-1 mt-3 max-w-xl text-[15px] leading-relaxed text-white/80">
             {subtitle}
           </p>
         )}
 
-        {children && <div className="rise rise-3 mt-6">{children}</div>}
+        {children && <div className="rise rise-2 mt-6">{children}</div>}
       </div>
 
       <WaveDivider />
 
-      <p className="pointer-events-none absolute bottom-[62px] right-3 z-10 text-[10px] text-white/45 sm:bottom-[92px]">
+      <p className="pointer-events-none absolute bottom-[62px] right-3 z-10 text-[10px] text-white/55 sm:bottom-[92px]">
         {spec.credit}
       </p>
     </section>
   );
 }
 
+/** The paper edge under every banner. Overlaps by a pixel so no hairline of the photo shows through. */
 export function WaveDivider() {
   return (
     <svg
       aria-hidden
       viewBox="0 0 1440 90"
       preserveAspectRatio="none"
-      className="absolute inset-x-0 bottom-0 h-[56px] w-full text-paper sm:h-[86px]"
+      className="absolute inset-x-0 -bottom-px h-[57px] w-full text-paper sm:h-[87px]"
     >
       <path
         d="M0 62c180-34 340-44 520-30 180 13 300 44 470 44 150 0 300-26 450-56V90H0Z"

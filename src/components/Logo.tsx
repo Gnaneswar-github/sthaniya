@@ -22,7 +22,7 @@ export function Wordmark({
   return (
     <span className={`flex items-center gap-2 ${className}`}>
       <Mark className={markClassName} />
-      <span className={textClassName}>Sthānīya</span>
+      <span className={textClassName}>Nativa</span>
     </span>
   );
 }

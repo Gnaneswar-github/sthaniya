@@ -12,7 +12,7 @@ import { PHASES } from "@/lib/phases";
 declare global {
   interface Window {
     /** Development-only handle for inspecting the world from the console or tests. */
-    __sthaniyaWorld?: WorldHandle;
+    __nativaWorld?: WorldHandle;
   }
 }
 
@@ -45,7 +45,10 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
   const topsRef = useRef<number[]>([]);
   const [active, setActive] = useState(0);
   const [status, setStatus] = useState<Status>("loading");
-  const [inView, setInView] = useState(true);
+  // The photograph stays underneath until the world has fully faded in over it. Removing it the
+  // moment the world was ready left a second of bare dark background while the canvas faded up.
+  const [photoGone, setPhotoGone] = useState(false);
+  const [railShown, setRailShown] = useState(true);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -115,11 +118,17 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
     // Nothing renders once the story has scrolled away and the paper sections take over.
     const intersection = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
-      setInView(entry.isIntersecting);
       if (visible) start();
       else stop();
     });
     intersection.observe(wrap);
+
+    // The rail sits at the middle of the screen, so it belongs to the story only while the story
+    // still covers that middle band — not while the wave is leaving and paper sits behind it.
+    const rail = new IntersectionObserver(([entry]) => setRailShown(entry.isIntersecting), {
+      rootMargin: "-45% 0px -45% 0px",
+    });
+    rail.observe(wrap);
 
     const onVisibility = () => (document.hidden ? stop() : start());
     document.addEventListener("visibilitychange", onVisibility);
@@ -140,8 +149,19 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
       else window.setTimeout(task, 600);
     };
 
+    // Building the world costs a few hundred milliseconds of main thread even in slices. On phones
+    // with few cores or little memory, or when the traveller asked to save data, that shows up as
+    // a stuttering hero — so those devices keep the photograph, which already tells the story.
+    const device = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+    const modestDevice =
+      (device.hardwareConcurrency ?? 8) <= 4 || (device.deviceMemory ?? 8) <= 4 || device.connection?.saveData === true;
+
     whenIdle(() => {
       if (disposed) return;
+      if (modestDevice) {
+        setStatus("fallback");
+        return;
+      }
       import("./scroll-world/world")
         .then(async ({ createWorld }) => {
           if (disposed) return;
@@ -155,13 +175,22 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
             return;
           }
           world = built;
-          if (process.env.NODE_ENV !== "production") window.__sthaniyaWorld = built;
+          if (process.env.NODE_ENV !== "production") window.__nativaWorld = built;
           built.resize(window.innerWidth, window.innerHeight);
           const p = exact();
           render = reduced.matches ? Math.round(p) : p;
           built.update(render, 0);
-          setStatus("ready");
           start();
+          // Fade only once a real frame is on the canvas, then retire the photo after the fade.
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              if (disposed) return;
+              setStatus("ready");
+              window.setTimeout(() => {
+                if (!disposed) setPhotoGone(true);
+              }, 800);
+            }),
+          );
         })
         .catch(() => setStatus("fallback"));
     });
@@ -172,11 +201,12 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
       window.removeEventListener("scroll", onScroll);
       resize.disconnect();
       intersection.disconnect();
+      rail.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       canvas.removeEventListener("webglcontextlost", onContextLost);
       world?.dispose();
       world = null;
-      delete window.__sthaniyaWorld;
+      delete window.__nativaWorld;
     };
   }, []);
 
@@ -196,7 +226,7 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
           free sticky layer overhung the section below by a full screen at the end. */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="sticky top-0 h-[100svh] overflow-hidden">
-          {status !== "ready" && (
+          {!photoGone && (
             <>
               <Image
                 src={PHASES.sunset.image}
@@ -211,7 +241,7 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
           )}
           <canvas
             ref={canvasRef}
-            className={`absolute inset-0 h-full w-full transition-opacity duration-1000 ${
+            className={`absolute inset-0 h-full w-full transition-opacity duration-700 ease-out ${
               status === "ready" ? "opacity-100" : "opacity-0"
             }`}
           />
@@ -234,11 +264,7 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
           style={{ minHeight: `${chapter.weight * 100}svh` }}
         >
           <div className="mx-auto w-full max-w-6xl px-5 pb-28 pt-24 sm:pb-32 sm:pt-28">
-            {index === 0 ? (
-              <Intro chapter={chapter} />
-            ) : (
-              <Beat chapter={chapter} index={index} last={index === CHAPTERS.length - 1} />
-            )}
+            {index === 0 ? <Intro chapter={chapter} /> : <Beat chapter={chapter} last={index === CHAPTERS.length - 1} />}
           </div>
         </section>
       ))}
@@ -246,7 +272,7 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
       <nav
         aria-label="Story chapters"
         className={`fixed right-4 top-1/2 z-20 hidden -translate-y-1/2 flex-col items-end gap-3.5 transition-opacity duration-500 sm:flex ${
-          inView ? "opacity-100" : "pointer-events-none opacity-0"
+          railShown ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
         {CHAPTERS.map((chapter, index) => (
@@ -259,10 +285,10 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
             className="group flex items-center gap-2.5 py-0.5"
           >
             <span
-              className={`text-[10px] font-semibold uppercase tracking-[0.2em] transition ${
+              className={`text-xs font-medium transition ${
                 active === index
-                  ? "text-white/80"
-                  : "text-transparent group-hover:text-white/70 group-focus-visible:text-white/70"
+                  ? "text-white/85"
+                  : "text-transparent group-hover:text-white/75 group-focus-visible:text-white/75"
               }`}
             >
               {chapter.label}
@@ -280,8 +306,8 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
         <WaveDivider />
       </div>
 
-      {status !== "ready" && (
-        <p className="pointer-events-none absolute bottom-[62px] right-3 z-20 text-[10px] text-white/45 sm:bottom-[92px]">
+      {!photoGone && (
+        <p className="pointer-events-none absolute bottom-[62px] right-3 z-20 text-[10px] text-white/55 sm:bottom-[92px]">
           {PHASES.sunset.credit}
         </p>
       )}
@@ -313,12 +339,9 @@ const wordCount = (text: string) => text.split(" ").length;
 function Intro({ chapter }: { chapter: Chapter }) {
   return (
     <div className="max-w-3xl">
-      <p className="sw-reveal text-[11px] font-semibold uppercase tracking-[0.28em] text-white/70">
-        {chapter.eyebrow}
-      </p>
       <h1
         id={`story-${chapter.id}-title`}
-        className="mt-4 font-display text-[2.6rem] font-semibold leading-[1.03] text-white [text-shadow:0_2px_30px_rgba(7,28,41,0.55)] sm:text-7xl"
+        className="font-display text-[2.6rem] font-semibold leading-[1.03] text-white [text-shadow:0_2px_30px_rgba(7,28,41,0.55)] sm:text-7xl"
       >
         <Words text={chapter.title} />
         <br />
@@ -339,17 +362,12 @@ function Intro({ chapter }: { chapter: Chapter }) {
   );
 }
 
-function Beat({ chapter, index, last }: { chapter: Chapter; index: number; last: boolean }) {
+function Beat({ chapter, last }: { chapter: Chapter; last: boolean }) {
   return (
     <div className="max-w-xl">
-      <p className="sw-reveal text-[11px] font-semibold uppercase tracking-[0.28em] text-gold-bright/90">
-        <span className="tabular-nums">{String(index + 1).padStart(2, "0")}</span>
-        <span className="mx-2 text-white/40">/</span>
-        {chapter.eyebrow}
-      </p>
       <h2
         id={`story-${chapter.id}-title`}
-        className="mt-3 font-display text-[2.4rem] font-semibold leading-[1.05] text-white [text-shadow:0_2px_30px_rgba(7,28,41,0.6)] sm:text-6xl"
+        className="font-display text-[2.4rem] font-semibold leading-[1.05] text-white [text-shadow:0_2px_30px_rgba(7,28,41,0.6)] sm:text-6xl"
       >
         <Words text={chapter.title} />{" "}
         {chapter.accent && (

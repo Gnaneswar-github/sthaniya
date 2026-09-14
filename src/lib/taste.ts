@@ -1,3 +1,4 @@
+import { readMigrated } from "./trip-storage";
 import { CATEGORIES, type Category, type TasteProfile } from "./types";
 
 /**
@@ -6,14 +7,15 @@ import { CATEGORIES, type Category, type TasteProfile } from "./types";
  * leaves the browser except as part of a trip request.
  */
 
-const KEY = "sthaniya.taste.v1";
+const KEY = "nativa.taste.v1";
+const LEGACY_KEY = "sthaniya.taste.v1";
 const CAP = 5;
 
 export const emptyTaste = (): TasteProfile => ({ likes: {}, dislikes: {} });
 
 export function readTaste(): TasteProfile {
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = readMigrated(KEY, LEGACY_KEY);
     if (!raw) return emptyTaste();
     const parsed = JSON.parse(raw) as Partial<TasteProfile>;
     return { likes: parsed.likes ?? {}, dislikes: parsed.dislikes ?? {} };

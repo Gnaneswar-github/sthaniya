@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeftIcon, ArrowRightIcon } from "./icons";
 import { ItemCard } from "./ItemCard";
 import { MapLink } from "./MapLink";
 import { TripMap } from "./TripMap";
@@ -175,7 +176,7 @@ export function TripView({
       if (vote.value === 1) entry.up += 1;
       else entry.down += 1;
       if (vote.userId === collab.userId) entry.mine = vote.value;
-      entry.names.push(`${names.get(vote.userId) ?? "Someone"} ${vote.value === 1 ? "👍" : "👎"}`);
+      entry.names.push(`${names.get(vote.userId) ?? "Someone"} (${vote.value === 1 ? "keep" : "skip"})`);
       map.set(vote.placeId, entry);
     }
     return map;
@@ -232,10 +233,6 @@ export function TripView({
     track("stop_reordered", { method: "drag" });
   }
 
-  const lead = stats.priced
-    ? { label: "Entry costs", value: formatMoney({ amount: stats.cost, currency: stats.currency }), sub: "estimated" }
-    : { label: "Days", value: `${trip.days.length}`, sub: `${dayLabel(firstDate ?? trip.prefs.startDate).split(" ")[0]} start` };
-
   const cities = [...new Set(trip.days.map((d) => d.destination ?? trip.prefs.destination))];
 
   return (
@@ -244,8 +241,8 @@ export function TripView({
         {/* summary */}
         <div className="rise space-y-4">
           <div className="no-print flex flex-wrap items-center justify-between gap-3">
-            <button type="button" onClick={onRestart} className="text-sm text-ink-faint transition hover:text-brand">
-              ← Start a new trip
+            <button type="button" onClick={onRestart} className="inline-flex items-center gap-1.5 py-2 text-sm text-ink-soft transition hover:text-brand">
+              <ArrowLeftIcon /> Start a new trip
             </button>
             <div className="flex flex-wrap gap-2">
               {onSaveToAccount && (
@@ -253,7 +250,7 @@ export function TripView({
                   type="button"
                   onClick={onSaveToAccount}
                   disabled={accountState === "saving" || accountState === "saved"}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white shadow-sm transition enabled:hover:-translate-y-0.5 enabled:hover:bg-brand-bright disabled:opacity-80"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white shadow-sm transition enabled:hover:-translate-y-0.5 enabled:hover:bg-brand-deep disabled:opacity-80"
                 >
                   <ToolIcon>
                     <path d="M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16l-7-4Z" />
@@ -294,26 +291,28 @@ export function TripView({
             {trip.prefs.interests.map(interestLabel).join(" · ")}
           </p>
 
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            <Stat label="Local score" value={`${stats.score}`} sub="out of 100" />
-            <Stat label="Stops" value={`${stats.stops}`} sub={`${trip.days.length} ${trip.days.length === 1 ? "day" : "days"}`} />
-            <Stat label={lead.label} value={lead.value} sub={lead.sub} />
-            <Stat label="Getting around" value={durationLabel(stats.travel)} sub="allowance" />
-          </div>
+          <dl className="flex flex-wrap items-baseline gap-x-7 gap-y-2 border-y border-line py-3.5">
+            <Fact label="Local score" value={`${stats.score}`} unit="/ 100" />
+            <Fact label="Stops" value={`${stats.stops}`} unit={`over ${trip.days.length} ${trip.days.length === 1 ? "day" : "days"}`} />
+            {stats.priced && (
+              <Fact label="Entry costs" value={formatMoney({ amount: stats.cost, currency: stats.currency })} unit="estimated" />
+            )}
+            <Fact label="Getting around" value={durationLabel(stats.travel)} unit="allowed" />
+          </dl>
         </div>
 
         {collab && <CollabPanel collab={collab} />}
 
         {/* reshape */}
         <div className="no-print space-y-3 rounded-3xl border border-line bg-paper-raised p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Reshape the whole trip</p>
+          <h2 className="text-sm font-semibold text-ink">Reshape the whole trip</h2>
           <div className="flex flex-wrap gap-2">
             <Transform onClick={() => apply(makeMoreLocal(trip, pool), "trip_made_local")}>Make it more local</Transform>
             {stats.priced && <Transform onClick={() => apply(makeCheaper(trip, pool), "trip_made_cheaper")}>Make it cheaper</Transform>}
             <Transform onClick={() => apply(slowDown(trip), "trip_slowed")}>Slow it down</Transform>
           </div>
           {rainyOutdoorDates.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[#35506a]/8 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-indigo/10 px-4 py-3">
               <p className="flex items-center gap-2 text-sm text-ink">
                 <WeatherGlyph icon="rain" className="h-5 w-5 text-indigo" />
                 {weather?.kind === "forecast" ? "Rain is forecast" : "It often rains"} on{" "}
@@ -385,7 +384,7 @@ export function TripView({
             <section key={day.date} id={`day-${dayIndex}`} className="scroll-mt-32 space-y-3">
               {cities.length > 1 && city !== previousCity && (
                 <p className="flex items-center gap-2 rounded-2xl bg-deep px-4 py-2.5 text-sm font-medium text-white">
-                  <span aria-hidden>→</span> On to {city}
+                  <ArrowRightIcon className="h-4 w-4 text-gold-bright" /> On to {city}
                 </p>
               )}
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -628,7 +627,7 @@ function CollabPanel({ collab }: { collab: CollabProps }) {
           <p className="text-xs text-ink-faint">{collab.saving ? "Saving changes…" : "Changes and votes sync live for everyone"}</p>
         </div>
       </div>
-      <button type="button" onClick={copyInvite} className="rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-bright">
+      <button type="button" onClick={copyInvite} className="rounded-full bg-brand px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-brand-deep">
         {copied ? "Invite link copied" : "Invite people to plan"}
       </button>
     </section>
@@ -642,7 +641,7 @@ function BookingCard({ trip, cities }: { trip: Trip; cities: string[] }) {
 
   return (
     <section className="no-print space-y-3 rounded-3xl border border-line bg-paper-raised p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Book what you need</p>
+      <h2 className="text-sm font-semibold text-ink">Book what you need</h2>
       <div className="flex flex-wrap gap-2">
         {cities.map((city) => {
           const cityDays = trip.days.filter((d) => (d.destination ?? trip.prefs.destination) === city);
@@ -740,7 +739,7 @@ function ReplacePanel({
           <button
             type="button"
             onClick={() => onPick(place)}
-            className="shrink-0 rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-bright"
+            className="shrink-0 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-deep"
           >
             Swap in
           </button>
@@ -750,12 +749,14 @@ function ReplacePanel({
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
+function Fact({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
-    <div className="rounded-2xl border border-line bg-paper-raised px-3.5 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">{label}</p>
-      <p className="font-display text-2xl leading-tight text-ink">{value}</p>
-      <p className="text-[11px] text-ink-faint">{sub}</p>
+    <div className="flex items-baseline gap-2">
+      <dt className="text-sm text-ink-soft">{label}</dt>
+      <dd className="font-display text-xl tabular-nums text-ink">
+        {value}
+        <span className="ml-1 font-sans text-xs text-ink-faint">{unit}</span>
+      </dd>
     </div>
   );
 }

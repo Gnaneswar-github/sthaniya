@@ -23,7 +23,7 @@ export type PhotoRequest = {
   wikipedia?: string;
 };
 
-const USER_AGENT = "Sthaniya/0.8 (travel planner; https://github.com/Gnaneswar-github/sthaniya)";
+const USER_AGENT = "Nativa/0.8 (travel planner; https://github.com/Gnaneswar-github/sthaniya)";
 
 type ApiResponse = Record<string, unknown>;
 

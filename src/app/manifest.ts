@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sthānīya — travel like a local",
-    short_name: "Sthānīya",
+    name: "Nativa — travel like a local",
+    short_name: "Nativa",
     description: "Trips built from real places, around your season, pace and the things you love. Works offline once opened.",
     start_url: "/",
     scope: "/",

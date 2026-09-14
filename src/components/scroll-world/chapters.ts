@@ -3,7 +3,7 @@
  * the camera rig and the lighting all read from one contract instead of scattered thresholds.
  *
  * The light follows the site's own cycle — sunset, golden hour, dusk, night, dawn — and each
- * chapter tells one true thing about how Sthānīya works. No chapter differs only by copy: each
+ * chapter tells one true thing about how Nativa works. No chapter differs only by copy: each
  * moves the camera somewhere new and changes the time of day.
  */
 
@@ -35,7 +35,6 @@ export type Chapter = {
   id: string;
   /** Short name for the chapter rail. */
   label: string;
-  eyebrow: string;
   title: string;
   accent?: string;
   body: string;
@@ -55,7 +54,6 @@ export const CHAPTERS: readonly Chapter[] = [
   {
     id: "arrive",
     label: "Arrive",
-    eyebrow: "Your next journey",
     title: "Travel like you",
     accent: "actually live there.",
     body: "Describe the trip the way you'd describe it to a friend. We read it, show you exactly what we understood, and build something you can argue with.",
@@ -83,7 +81,6 @@ export const CHAPTERS: readonly Chapter[] = [
   {
     id: "tell",
     label: "Tell us",
-    eyebrow: "In your own words",
     title: "Say it the way",
     accent: "you'd tell a friend.",
     body: "Three days, your partner, quiet temples, no crowds, a budget in any currency. One sentence is enough — we pick out the dates, the pace and what you'd rather skip.",
@@ -111,7 +108,6 @@ export const CHAPTERS: readonly Chapter[] = [
   {
     id: "understood",
     label: "Understood",
-    eyebrow: "Nothing hidden",
     title: "See exactly what",
     accent: "we understood.",
     body: "Every detail we read shows the words it came from, so you can adjust anything before a single stop is chosen.",
@@ -139,7 +135,6 @@ export const CHAPTERS: readonly Chapter[] = [
   {
     id: "real",
     label: "Real places",
-    eyebrow: "On the map",
     title: "Real places,",
     accent: "never invented.",
     body: "Every stop is a place that exists, drawn from OpenStreetMap and Wikipedia, then arranged around your season, your pace and the things you love.",
@@ -167,7 +162,6 @@ export const CHAPTERS: readonly Chapter[] = [
   {
     id: "yours",
     label: "Yours",
-    eyebrow: "Morning, your way",
     title: "Then make it",
     accent: "entirely yours.",
     body: "Swap a stop, make it more local, slow a day down. It's a plan you can shape, not a verdict.",

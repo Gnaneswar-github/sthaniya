@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
+import { CheckIcon } from "./icons";
 import { PageHero } from "./PageHero";
 import { PlaceArt } from "./PlaceArt";
 import { TripView } from "./TripView";
@@ -347,12 +348,11 @@ export function PlanFlow({ query }: { query: string }) {
       <>
         <PageHero
           phase="dawn"
-          eyebrow="Your trip"
           title={trip.prefs.destination}
           subtitle={`${nights} ${nights === 1 ? "day" : "days"}, ${trip.days.flatMap((d) => d.items).length} stops — and every one of them is yours to change.`}
         />
         <main className="mx-auto w-full max-w-6xl flex-1 space-y-5 px-5 py-8">
-          {error && <p className="rounded-2xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm text-ink-soft">{error}</p>}
+          {error && <p role="alert" className="rounded-2xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</p>}
           <TripView
             trip={trip}
             pool={pool}
@@ -371,22 +371,21 @@ export function PlanFlow({ query }: { query: string }) {
     <>
       <PageHero
         phase="golden"
-        eyebrow="Step two"
         title="Here's what we"
         accent="understood."
         subtitle="Every field below shows the words it came from. Change anything that's wrong — the trip is built from these, not from the sentence."
       />
 
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-5 px-5 py-8">
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-5 py-8">
         {query && (
-          <blockquote className="rise rounded-2xl border-l-2 border-gold bg-paper-raised px-4 py-3 text-[15px] leading-relaxed text-ink-soft">
+          <blockquote className="rise text-balance px-1 font-display text-xl italic leading-snug text-ink-soft sm:text-2xl">
             &ldquo;{query}&rdquo;
           </blockquote>
         )}
 
         {!stage && <Understanding prefs={prefs} readFrom={readFrom} avoid={intent.avoid} onChange={setPrefs} />}
 
-        {error && <p className="rounded-2xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm text-ink-soft">{error}</p>}
+        {error && <p role="alert" className="rounded-2xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</p>}
 
         {stage ? (
           <DraftingProgress stage={stage} places={live} destination={stage.destination ?? prefs.destination} />
@@ -395,7 +394,7 @@ export function PlanFlow({ query }: { query: string }) {
             type="button"
             onClick={build}
             disabled={busy}
-            className="w-full rounded-full bg-brand px-5 py-4 font-semibold text-white shadow-[0_18px_40px_-20px_rgba(21,121,90,0.8)] transition enabled:hover:-translate-y-0.5 enabled:hover:bg-brand-bright disabled:opacity-60"
+            className="w-full rounded-full bg-brand px-5 py-4 font-semibold text-white shadow-[0_18px_40px_-20px_rgba(21,121,90,0.8)] transition enabled:hover:-translate-y-0.5 enabled:hover:bg-brand-deep enabled:active:translate-y-0 disabled:opacity-60"
           >
             {busy ? "Building your trip…" : prefs.legs && prefs.legs.length > 1 ? `Build my ${prefs.legs.length}-city trip` : "Build my trip"}
           </button>
@@ -419,9 +418,7 @@ function DraftingProgress({ stage, places, destination }: { stage: Stage; places
 
   return (
     <section aria-live="polite" className="rise overflow-hidden rounded-3xl border border-line bg-paper-raised shadow-[0_24px_60px_-40px_rgba(13,47,66,0.5)]">
-      {stage.label && (
-        <p className="border-b border-line bg-deep px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-gold-bright">{stage.label}</p>
-      )}
+      {stage.label && <p className="border-b border-line bg-deep px-4 py-2.5 text-sm font-medium text-gold-bright">{stage.label}</p>}
       <ol className="grid grid-cols-3 border-b border-line">
         {steps.map((step, index) => {
           const done = index < current;
@@ -429,11 +426,11 @@ function DraftingProgress({ stage, places, destination }: { stage: Stage; places
           return (
             <li key={step.id} className={`flex items-center gap-2 px-3 py-3 text-xs sm:px-4 ${activeStep ? "text-ink" : done ? "text-brand" : "text-ink-faint"}`}>
               <span
-                className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${
+                className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold tabular-nums ${
                   done ? "bg-brand text-white" : activeStep ? "animate-pulse bg-gold-bright text-deep" : "bg-paper-sunken"
                 }`}
               >
-                {done ? "✓" : index + 1}
+                {done ? <CheckIcon className="h-3 w-3" /> : index + 1}
               </span>
               <span className="truncate font-medium">{step.label}</span>
             </li>
@@ -502,20 +499,19 @@ function RefineTrip({ destination, onBack }: { destination: string; onBack: () =
     <>
       <PageHero
         phase="dusk"
-        eyebrow="Let's refine"
         title={destination}
         subtitle="A couple of small changes and your trip will start taking shape."
       />
 
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-5 px-5 py-8">
         <section className="rounded-3xl border border-gold/40 bg-gold/5 p-5 sm:p-7">
-          <h2 className="font-display text-2xl leading-tight text-ink sm:text-3xl">Let&rsquo;s shape {destination} a little differently</h2>
+          <h2 className="text-balance font-display text-2xl leading-tight text-ink sm:text-3xl">Let&rsquo;s shape {destination} a little differently</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-ink-soft">
             Try adding an interest or two, or name a nearby town or neighbourhood. The more you give us to go on, the more we can
             build around it.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" onClick={onBack} className="rounded-xl bg-ink px-5 py-3 text-sm font-medium text-paper transition hover:bg-brand">
+            <button type="button" onClick={onBack} className="rounded-xl bg-ink px-5 py-3 text-sm font-medium text-paper transition hover:bg-brand-deep">
               Edit my preferences
             </button>
             <Link
@@ -535,7 +531,6 @@ function RefineTrip({ destination, onBack }: { destination: string; onBack: () =
               </div>
             )}
             <div className="space-y-2 p-5 sm:p-6">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">A little about the place</p>
               <h3 className="font-display text-2xl text-ink">{sourced.name}</h3>
               <p className="text-[15px] leading-relaxed text-ink-soft">{extractFor(sourced)}</p>
               <p className="pt-1 text-[11px] text-ink-faint">

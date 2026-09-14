@@ -19,7 +19,7 @@ for (const [id, photo] of Object.entries(sources)) {
   const filename = `${id}.jpg`;
 
   const response = await fetch(photo.remoteUrl, {
-    headers: { "User-Agent": "Sthaniya/0.1 (residency demo; https://github.com/Gnaneswar-github/sthaniya)" },
+    headers: { "User-Agent": "Nativa/0.1 (residency demo; https://github.com/Gnaneswar-github/sthaniya)" },
   });
   if (!response.ok) {
     console.log(`FAILED ${id}: HTTP ${response.status}`);

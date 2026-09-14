@@ -1,6 +1,8 @@
 import { COUNTRY_CURRENCY, isKnownCurrency, type CurrencyCode } from "./catalog";
+import { readMigrated } from "../trip-storage";
 
-export const CURRENCY_STORAGE_KEY = "sthaniya.currency";
+export const CURRENCY_STORAGE_KEY = "nativa.currency";
+const LEGACY_CURRENCY_STORAGE_KEY = "sthaniya.currency";
 
 export type CurrencySource = "saved" | "locale" | "region" | "fallback";
 
@@ -50,7 +52,7 @@ export function detectCurrency(saved?: string | null): DetectedCurrency {
 
 export function readSavedCurrency(): string | null {
   try {
-    return window.localStorage.getItem(CURRENCY_STORAGE_KEY);
+    return readMigrated(CURRENCY_STORAGE_KEY, LEGACY_CURRENCY_STORAGE_KEY);
   } catch {
     return null;
   }

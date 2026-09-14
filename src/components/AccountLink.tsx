@@ -12,7 +12,7 @@ export function AccountLink({ onHero = false }: { onHero?: boolean }) {
 
   if (!user) {
     return (
-      <Link href="/account" className={`rounded-lg px-3 py-2 text-sm transition ${tone}`}>
+      <Link href="/account" className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-sm transition sm:px-3 ${tone}`}>
         Sign in
       </Link>
     );

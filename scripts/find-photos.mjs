@@ -22,7 +22,7 @@ async function search(term) {
   });
 
   const response = await fetch(`${API}?${params}`, {
-    headers: { "User-Agent": "Sthaniya/0.1 (demo project; contact via repo)" },
+    headers: { "User-Agent": "Nativa/0.1 (demo project; contact via repo)" },
   });
   if (!response.ok) throw new Error(`${term}: HTTP ${response.status}`);
 
@@ -53,7 +53,7 @@ async function resolve(titles) {
   });
 
   const response = await fetch(`${API}?${params}`, {
-    headers: { "User-Agent": "Sthaniya/0.1 (demo project; contact via repo)" },
+    headers: { "User-Agent": "Nativa/0.1 (demo project; contact via repo)" },
   });
   const pages = (await response.json()).query?.pages ?? {};
 

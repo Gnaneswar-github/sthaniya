@@ -43,9 +43,9 @@ export function SharedTrip() {
   if (state.status === "missing") {
     return (
       <>
-        <PageHero phase="dusk" eyebrow="Shared trip" title="This link didn't open" subtitle="It may have been cut short when it was copied. Ask for it again, or plan your own." />
+        <PageHero phase="dusk" title="This link didn't open" subtitle="It may have been cut short when it was copied. Ask for it again, or plan your own." />
         <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10 text-center">
-          <button type="button" onClick={() => router.push("/")} className="rounded-full bg-brand px-6 py-3 text-sm font-semibold text-white">
+          <button type="button" onClick={() => router.push("/")} className="rounded-full bg-brand px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-deep">
             Plan a trip
           </button>
         </main>
@@ -58,7 +58,6 @@ export function SharedTrip() {
     <>
       <PageHero
         phase="dawn"
-        eyebrow="Shared with you"
         title={trip.prefs.destination}
         subtitle={`${trip.days.length} ${trip.days.length === 1 ? "day" : "days"}, ${trip.days.flatMap((d) => d.items).length} stops. Save it to make it yours.`}
       />
@@ -71,7 +70,7 @@ export function SharedTrip() {
               saveTrip({ trip, pool, meta: null });
               router.push("/plan");
             }}
-            className="rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-bright"
+            className="rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-deep"
           >
             Save to my trips
           </button>
