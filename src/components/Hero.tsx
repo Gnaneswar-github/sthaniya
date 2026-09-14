@@ -128,7 +128,7 @@ export function HeroPrompt() {
               <button
                 type="button"
                 onClick={() => go(destination.name)}
-                className="flex items-center gap-2 rounded-full bg-white/12 py-1.5 pl-1.5 pr-4 text-sm text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white/20"
+                className="flex items-center gap-2 rounded-full bg-deep-2/55 py-1.5 pl-1.5 pr-4 text-sm text-white ring-1 ring-white/20 transition hover:bg-deep-2/75"
               >
                 {destination.thumbnailUrl && (
                   <span className="relative h-7 w-7 overflow-hidden rounded-full">

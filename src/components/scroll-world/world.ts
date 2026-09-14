@@ -22,10 +22,10 @@ import type { Chapter, WorldState } from "./chapters";
 export type WorldHandle = {
   /** `progress` is fractional chapter progress; `dt` is 0 when ambient motion should freeze. */
   update: (progress: number, dt: number) => void;
-  resize: (width: number, height: number) => void;
+  resize: (width: number, height: number, pixelRatio: number) => void;
   dispose: () => void;
   readonly renderer: THREE.WebGLRenderer;
-  readonly canvas: HTMLCanvasElement;
+  readonly canvas: HTMLCanvasElement | OffscreenCanvas;
 };
 
 const ISLAND_RADIUS = 150;
@@ -82,10 +82,11 @@ function mulberry32(seed: number) {
   };
 }
 
+/** Works on the page and inside a worker, where there is no document to make a canvas from. */
 function glowTexture() {
-  const canvas = document.createElement("canvas");
+  const canvas = typeof document !== "undefined" ? document.createElement("canvas") : new OffscreenCanvas(64, 64);
   canvas.width = canvas.height = 64;
-  const context = canvas.getContext("2d");
+  const context = canvas.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
   if (context) {
     const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
     gradient.addColorStop(0, "rgba(255,255,255,1)");
@@ -180,12 +181,17 @@ function pointGrid(cell: number) {
  * Built in slices with a yield between each, then shaders compiled before the first frame. The
  * previous one-shot build measured a 1.1-second main-thread freeze on the production homepage.
  */
-export async function createWorld(canvas: HTMLCanvasElement, chapters: readonly Chapter[]): Promise<WorldHandle | null> {
+export async function createWorld(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  chapters: readonly Chapter[],
+): Promise<WorldHandle | null> {
   if (chapters.length < 2) return null;
 
   let renderer: THREE.WebGLRenderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    // No MSAA: the flat-shaded, fogged, low-poly look hides aliasing, and multisampling a full-screen
+    // canvas every frame was more than a laptop's integrated GPU could finish in one frame.
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
     if (!renderer.getContext()) return null;
   } catch {
     return null;
@@ -273,14 +279,15 @@ export async function createWorld(canvas: HTMLCanvasElement, chapters: readonly 
       "#include <begin_vertex>\n  transformed.z += sin(position.x * 0.05 + uTime * 0.9) * 0.5 + cos(position.y * 0.043 - uTime * 0.7) * 0.4;",
     )}`;
   };
-  const sea = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000, 160, 160), seaMaterial);
+  // 64 segments keep the swell visible from every camera waypoint at a sixth of the vertices.
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000, 64, 64), seaMaterial);
   sea.rotation.x = -Math.PI / 2;
   scene.add(sea);
 
   await yieldToMain();
 
   /* island ---------------------------------------------------------------- */
-  const terrainGeometry = new THREE.PlaneGeometry(ISLAND_RADIUS * 2.4, ISLAND_RADIUS * 2.4, 140, 140);
+  const terrainGeometry = new THREE.PlaneGeometry(ISLAND_RADIUS * 2.4, ISLAND_RADIUS * 2.4, 96, 96);
   terrainGeometry.rotateX(-Math.PI / 2);
   const positions = terrainGeometry.attributes.position;
   const terrainColors: number[] = [];
@@ -787,9 +794,9 @@ export async function createWorld(canvas: HTMLCanvasElement, chapters: readonly 
     renderer.render(scene, camera);
   }
 
-  function resize(width: number, height: number) {
-    const coarse = window.matchMedia("(pointer: coarse)").matches;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.5 : 2));
+  /** `pixelRatio` comes from the page, already capped — a worker can't read the screen itself. */
+  function resize(width: number, height: number, pixelRatio: number) {
+    renderer.setPixelRatio(pixelRatio);
     renderer.setSize(width, height, false);
     aspect = width / Math.max(1, height);
     camera.aspect = aspect;

@@ -138,17 +138,20 @@ a {
 /*
  * Homepage scroll world: copy reveals follow the exact chapter, never the damped camera. Hidden
  * states only apply when scripts run and motion is welcome — otherwise every word stays put.
+ * Opacity and transform only: both run on the compositor, so a reveal never repaints text over
+ * the moving world. (A blur filter here repainted every word on every frame of the transition.)
  */
 @media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
   .sw-chapter .sw-reveal,
   .sw-chapter .sw-word {
     opacity: 0;
     transform: translateY(18px);
-    filter: blur(8px);
+    /* Painted ahead on their own layers, so the first reveal of a chapter is only a compositor
+       change — measured as the last slow scroll frame when these were drawn on first use. */
+    will-change: opacity, transform;
     transition:
       opacity 0.7s ease,
-      transform 0.8s cubic-bezier(0.2, 0.7, 0.3, 1),
-      filter 0.7s ease;
+      transform 0.8s cubic-bezier(0.2, 0.7, 0.3, 1);
   }
   .sw-chapter .sw-reveal {
     transition-delay: var(--d, 0ms);
@@ -161,8 +164,12 @@ a {
   .sw-chapter[data-active="true"] .sw-word {
     opacity: 1;
     transform: none;
-    filter: none;
   }
+}
+
+/* Time-of-day tints over the hero photograph: kept on ready layers so a fade never paints. */
+.sw-tint {
+  will-change: opacity;
 }
 
 @keyframes rise {

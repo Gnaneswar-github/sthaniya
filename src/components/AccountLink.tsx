@@ -6,9 +6,18 @@ import { displayNameOf, useAuth } from "./AuthProvider";
 /** "Sign in", or the traveller's initial and a way to their trips. Hidden when accounts are off. */
 export function AccountLink({ onHero = false }: { onHero?: boolean }) {
   const { user, ready, available } = useAuth();
-  if (!available || !ready) return null;
+  if (!available) return null;
 
   const tone = onHero ? "text-white/80 hover:text-white" : "text-ink-soft hover:text-brand";
+
+  // Holds the link's place while the session is read, so the nav never shifts when it appears.
+  if (!ready) {
+    return (
+      <span aria-hidden className="invisible whitespace-nowrap rounded-lg px-2.5 py-2 text-sm sm:px-3">
+        Sign in
+      </span>
+    );
+  }
 
   if (!user) {
     return (

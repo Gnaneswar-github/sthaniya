@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { MoodGrid, SurpriseMe, WhereNext } from "@/components/DiscoverRails";
 import { ScrollWorld } from "@/components/ScrollWorld";
 import { Footer, Nav } from "@/components/Shell";
@@ -13,10 +14,19 @@ export default function Home() {
     <>
       <ScrollWorld nav={<Nav overHero />} />
 
+      {/* Each section below the story is its own Suspense boundary, so React hydrates them one at a
+          time and the browser can handle scrolling and typing in between — rather than bringing
+          the whole page to life in a single long task. */}
       <main className="mx-auto w-full max-w-6xl flex-1 space-y-16 px-5 pb-8 pt-12 sm:space-y-20 sm:pt-16">
-        <WhereNext destinations={picks} />
-        <MoodGrid />
-        <SurpriseMe />
+        <Suspense>
+          <WhereNext destinations={picks} />
+        </Suspense>
+        <Suspense>
+          <MoodGrid />
+        </Suspense>
+        <Suspense>
+          <SurpriseMe />
+        </Suspense>
       </main>
 
       <Footer />

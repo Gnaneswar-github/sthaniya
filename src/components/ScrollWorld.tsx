@@ -6,15 +6,28 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { HeroPrompt } from "./Hero";
 import { WaveDivider } from "./PageHero";
 import { CHAPTERS, type Chapter } from "./scroll-world/chapters";
-import type { WorldHandle } from "./scroll-world/world";
-import { PHASES } from "@/lib/phases";
+import type { FromWorld, ToWorld } from "./scroll-world/world.worker";
+import { PHASES, type Phase } from "@/lib/phases";
 
-declare global {
-  interface Window {
-    /** Development-only handle for inspecting the world from the console or tests. */
-    __nativaWorld?: WorldHandle;
-  }
-}
+/**
+ * The live Three.js island is opt-in. Measured on a laptop with integrated graphics it still
+ * competed with scrolling and typing for the GPU — a 736 ms stalled keystroke at start-up — so
+ * the default story is told with photographs that crossfade on the compositor, which never
+ * blocks input. Set NEXT_PUBLIC_HERO_3D=1 to bring the island back on capable hardware.
+ */
+const WORLD_ENABLED = process.env.NEXT_PUBLIC_HERO_3D === "1";
+
+/** The time of day for each chapter, following the story from sunset through night to dawn. */
+const CHAPTER_PHASE: Phase[] = ["sunset", "golden", "dusk", "dusk", "dawn"];
+const PHOTO_LAYERS = [...new Set(CHAPTER_PHASE)];
+
+/** A tint per time of day, laid over the one photograph. */
+const TINT: Record<Phase, string> = {
+  sunset: PHASES.sunset.wash,
+  golden: "bg-gradient-to-r from-[#3a2410]/90 via-[#6b4318]/65 to-[#c98f3c]/35",
+  dusk: "bg-gradient-to-r from-[#0b0f24]/95 via-[#1b2552]/85 to-[#3a2f5c]/60",
+  dawn: "bg-gradient-to-r from-[#0b2b36]/90 via-[#1d6473]/60 to-[#f4bd8e]/35",
+};
 
 type Status = "loading" | "ready" | "fallback";
 
@@ -33,180 +46,118 @@ function progressFrom(tops: number[], y: number) {
 }
 
 /**
- * The homepage story as one persistent Three.js world. Native scroll is the only input: the
- * exact progress drives the copy and the chapter rail, a damped copy of it drives the camera.
- * The canvas is decoration — every word, link and the trip prompt are real DOM above it, and
- * the photograph stands in whenever WebGL can't.
+ * The homepage story. Native scroll is the only input: the exact progress picks the chapter,
+ * which reveals its copy and fades in that chapter's photograph. Every word, link and the trip
+ * prompt are real DOM; the imagery behind them is decoration.
  */
 export function ScrollWorld({ nav }: { nav: ReactNode }) {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLElement | null)[]>([]);
   const topsRef = useRef<number[]>([]);
   const [active, setActive] = useState(0);
   const [status, setStatus] = useState<Status>("loading");
-  // The photograph stays underneath until the world has fully faded in over it. Removing it the
-  // moment the world was ready left a second of bare dark background while the canvas faded up.
-  const [photoGone, setPhotoGone] = useState(false);
   const [railShown, setRailShown] = useState(true);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
     const wrap = wrapRef.current;
-    if (!canvas || !wrap) return;
+    if (!wrap) return;
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let world: WorldHandle | null = null;
-    let raf = 0;
-    let running = false;
-    let visible = true;
     let disposed = false;
-    let render = 0;
-    let last = performance.now();
     let shown = 0;
+    let worker: Worker | null = null;
+    let pendingProgress = 0;
+    let canvas: HTMLCanvasElement | null = null;
 
     const measure = () => {
-      topsRef.current = sectionRefs.current.map((el) =>
-        el ? el.getBoundingClientRect().top + window.scrollY : 0,
-      );
+      topsRef.current = sectionRefs.current.map((el) => (el ? el.getBoundingClientRect().top + window.scrollY : 0));
     };
     const exact = () => progressFrom(topsRef.current, window.scrollY);
-    const syncDom = (p: number) => {
-      const next = Math.round(p);
+    const send = (message: ToWorld, transfer: Transferable[] = []) => worker?.postMessage(message, transfer);
+
+    const onScroll = () => {
+      const next = Math.round(exact());
       if (next !== shown) {
         shown = next;
         setActive(next);
       }
-    };
-
-    const frame = (now: number) => {
-      // Clamp after stalls or a resumed tab so damping never lurches.
-      const dt = Math.min((now - last) / 1000, 1 / 30);
-      last = now;
-      const p = exact();
-      syncDom(p);
-      if (reduced.matches) {
-        render = Math.round(p);
-      } else {
-        render += (p - render) * (1 - Math.exp(-5.2 * dt));
-        if (Math.abs(p - render) < 1e-4) render = p;
+      if (worker && !pendingProgress) {
+        pendingProgress = requestAnimationFrame(() => {
+          pendingProgress = 0;
+          send({ type: "progress", value: exact() });
+        });
       }
-      world?.update(render, reduced.matches ? 0 : dt);
-      raf = requestAnimationFrame(frame);
-    };
-    const start = () => {
-      if (running || !world || !visible || document.hidden) return;
-      running = true;
-      last = performance.now();
-      raf = requestAnimationFrame(frame);
-    };
-    const stop = () => {
-      running = false;
-      cancelAnimationFrame(raf);
     };
 
     measure();
-    const onScroll = () => syncDom(exact());
     window.addEventListener("scroll", onScroll, { passive: true });
-
-    const resize = new ResizeObserver(() => {
-      measure();
-      world?.resize(window.innerWidth, window.innerHeight);
-    });
+    const resize = new ResizeObserver(measure);
     resize.observe(document.documentElement);
-
-    // Nothing renders once the story has scrolled away and the paper sections take over.
-    const intersection = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting;
-      if (visible) start();
-      else stop();
-    });
-    intersection.observe(wrap);
 
     // The rail sits at the middle of the screen, so it belongs to the story only while the story
     // still covers that middle band — not while the wave is leaving and paper sits behind it.
-    const rail = new IntersectionObserver(([entry]) => setRailShown(entry.isIntersecting), {
-      rootMargin: "-45% 0px -45% 0px",
-    });
+    const rail = new IntersectionObserver(([entry]) => setRailShown(entry.isIntersecting), { rootMargin: "-45% 0px -45% 0px" });
     rail.observe(wrap);
 
-    const onVisibility = () => (document.hidden ? stop() : start());
-    document.addEventListener("visibilitychange", onVisibility);
+    const cleanups: (() => void)[] = [];
+    if (WORLD_ENABLED && stageRef.current) cleanups.push(startWorld(stageRef.current));
 
-    const onContextLost = (event: Event) => {
-      event.preventDefault();
-      stop();
-      setStatus("fallback");
-    };
-    canvas.addEventListener("webglcontextlost", onContextLost);
 
-    // The hero must be typeable before anything else: the world waits for an idle moment, then
-    // builds in slices and compiles its shaders before its first frame (see world.ts).
-    const whenIdle = (task: () => void) => {
-      const idle = (window as Window & { requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => number })
-        .requestIdleCallback;
-      if (idle) idle(task, { timeout: 2000 });
-      else window.setTimeout(task, 600);
-    };
+    function startWorld(stage: HTMLDivElement) {
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+      // Drawn at most ~1280 device pixels wide and scaled up by the compositor.
+      const pixelRatio = () => Math.max(0.5, Math.min(window.devicePixelRatio || 1, 1280 / Math.max(1, window.innerWidth), 1.5));
+      canvas = document.createElement("canvas");
+      canvas.className = "absolute inset-0 h-full w-full";
+      stage.appendChild(canvas);
 
-    // Building the world costs a few hundred milliseconds of main thread even in slices. On phones
-    // with few cores or little memory, or when the traveller asked to save data, that shows up as
-    // a stuttering hero — so those devices keep the photograph, which already tells the story.
-    const device = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
-    const modestDevice =
-      (device.hardwareConcurrency ?? 8) <= 4 || (device.deviceMemory ?? 8) <= 4 || device.connection?.saveData === true;
-
-    whenIdle(() => {
-      if (disposed) return;
-      if (modestDevice) {
-        setStatus("fallback");
-        return;
+      const device = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+      const modest = (device.hardwareConcurrency ?? 8) <= 4 || (device.deviceMemory ?? 8) <= 4 || device.connection?.saveData === true;
+      if (modest || typeof Worker === "undefined" || typeof canvas.transferControlToOffscreen !== "function") {
+        return () => canvas?.remove();
       }
-      import("./scroll-world/world")
-        .then(async ({ createWorld }) => {
-          if (disposed) return;
-          const built = await createWorld(canvas, CHAPTERS);
-          if (disposed) {
-            built?.dispose();
-            return;
-          }
-          if (!built) {
-            setStatus("fallback");
-            return;
-          }
-          world = built;
-          if (process.env.NODE_ENV !== "production") window.__nativaWorld = built;
-          built.resize(window.innerWidth, window.innerHeight);
-          const p = exact();
-          render = reduced.matches ? Math.round(p) : p;
-          built.update(render, 0);
-          start();
-          // Fade only once a real frame is on the canvas, then retire the photo after the fade.
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => {
-              if (disposed) return;
-              setStatus("ready");
-              window.setTimeout(() => {
-                if (!disposed) setPhotoGone(true);
-              }, 800);
-            }),
-          );
-        })
-        .catch(() => setStatus("fallback"));
-    });
+
+      const onResize = () => send({ type: "resize", width: window.innerWidth, height: window.innerHeight, pixelRatio: pixelRatio() });
+      window.addEventListener("resize", onResize);
+      const visibility = new IntersectionObserver(([entry]) => send({ type: "running", value: entry.isIntersecting && !document.hidden }));
+      visibility.observe(wrap!);
+      const onHidden = () => send({ type: "running", value: !document.hidden });
+      document.addEventListener("visibilitychange", onHidden);
+
+      worker = new Worker(new URL("./scroll-world/world.worker.ts", import.meta.url), { type: "module" });
+      worker.onmessage = ({ data }: MessageEvent<FromWorld>) => {
+        if (disposed) return;
+        if (data.type === "failed") {
+          worker?.terminate();
+          worker = null;
+          setStatus("fallback");
+        } else {
+          setStatus("ready");
+        }
+      };
+      const offscreen = canvas.transferControlToOffscreen();
+      send(
+        { type: "init", canvas: offscreen, width: window.innerWidth, height: window.innerHeight, pixelRatio: pixelRatio(), progress: exact(), reduced: reduced.matches },
+        [offscreen],
+      );
+
+      return () => {
+        window.removeEventListener("resize", onResize);
+        visibility.disconnect();
+        document.removeEventListener("visibilitychange", onHidden);
+        worker?.terminate();
+        worker = null;
+        canvas?.remove();
+      };
+    }
 
     return () => {
       disposed = true;
-      stop();
+      cancelAnimationFrame(pendingProgress);
       window.removeEventListener("scroll", onScroll);
       resize.disconnect();
-      intersection.disconnect();
       rail.disconnect();
-      document.removeEventListener("visibilitychange", onVisibility);
-      canvas.removeEventListener("webglcontextlost", onContextLost);
-      world?.dispose();
-      world = null;
-      delete window.__nativaWorld;
+      cleanups.forEach((cleanup) => cleanup());
     };
   }, []);
 
@@ -217,34 +168,39 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
     window.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
   }
 
+  const activePhase = CHAPTER_PHASE[Math.min(active, CHAPTER_PHASE.length - 1)];
+
   return (
     <div ref={wrapRef} className="relative isolate bg-deep-2">
       {nav}
 
       {/* One persistent layer for the whole story. Sticky, not fixed, so nothing intercepts the
-          wheel — and bounded by an absolute track the exact height of the story, because a
-          free sticky layer overhung the section below by a full screen at the end. */}
+          wheel — and bounded by an absolute track the exact height of the story. */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="sticky top-0 h-[100svh] overflow-hidden">
-          {!photoGone && (
-            <>
-              <Image
-                src={PHASES.sunset.image}
-                alt=""
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover object-[60%_center]"
-              />
-              <div className={`absolute inset-0 ${PHASES.sunset.wash}`} />
-            </>
-          )}
-          <canvas
-            ref={canvasRef}
-            className={`absolute inset-0 h-full w-full transition-opacity duration-700 ease-out ${
-              status === "ready" ? "opacity-100" : "opacity-0"
-            }`}
+          {/* One photograph for the whole story; each chapter's time of day is a light tint over it.
+              Four full-screen photos meant four large decodes and GPU uploads — measured as a
+              stalled keystroke — while a tint is a gradient the compositor fades for free. */}
+          <Image
+            src={PHASES.sunset.image}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-[60%_center]"
           />
+          {PHOTO_LAYERS.map((phase) => (
+            <div
+              key={phase}
+              className={`sw-tint absolute inset-0 transition-opacity duration-1000 ease-out ${TINT[phase]} ${phase === activePhase ? "opacity-100" : "opacity-0"}`}
+            />
+          ))}
+          {WORLD_ENABLED && (
+            <div
+              ref={stageRef}
+              className={`absolute inset-0 transition-opacity duration-700 ease-out ${status === "ready" ? "opacity-100" : "opacity-0"}`}
+            />
+          )}
           {/* Authored scrims keep copy legible over every time of day. */}
           <div className="absolute inset-0 bg-gradient-to-t from-deep-2/85 via-deep-2/25 to-deep-2/35 sm:bg-gradient-to-r sm:from-deep-2/80 sm:via-deep-2/30 sm:to-transparent" />
           <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-deep-2/60 to-transparent" />
@@ -286,9 +242,7 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
           >
             <span
               className={`text-xs font-medium transition ${
-                active === index
-                  ? "text-white/85"
-                  : "text-transparent group-hover:text-white/75 group-focus-visible:text-white/75"
+                active === index ? "text-white/85" : "text-transparent group-hover:text-white/75 group-focus-visible:text-white/75"
               }`}
             >
               {chapter.label}
@@ -306,11 +260,9 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
         <WaveDivider />
       </div>
 
-      {!photoGone && (
-        <p className="pointer-events-none absolute bottom-[62px] right-3 z-20 text-[10px] text-white/55 sm:bottom-[92px]">
-          {PHASES.sunset.credit}
-        </p>
-      )}
+      <p className="pointer-events-none absolute bottom-[62px] right-3 z-20 text-[10px] text-white/55 sm:bottom-[92px]">
+        {PHASES.sunset.credit}
+      </p>
     </div>
   );
 }
@@ -341,7 +293,7 @@ function Intro({ chapter }: { chapter: Chapter }) {
     <div className="max-w-3xl">
       <h1
         id={`story-${chapter.id}-title`}
-        className="font-display text-[2.6rem] font-semibold leading-[1.03] text-white [text-shadow:0_2px_30px_rgba(7,28,41,0.55)] sm:text-7xl"
+        className="font-display text-[2.6rem] font-semibold leading-[1.03] text-white [text-shadow:0_1px_10px_rgba(7,28,41,0.45)] sm:text-7xl"
       >
         <Words text={chapter.title} />
         <br />
@@ -367,7 +319,7 @@ function Beat({ chapter, last }: { chapter: Chapter; last: boolean }) {
     <div className="max-w-xl">
       <h2
         id={`story-${chapter.id}-title`}
-        className="font-display text-[2.4rem] font-semibold leading-[1.05] text-white [text-shadow:0_2px_30px_rgba(7,28,41,0.6)] sm:text-6xl"
+        className="font-display text-[2.4rem] font-semibold leading-[1.05] text-white [text-shadow:0_1px_10px_rgba(7,28,41,0.5)] sm:text-6xl"
       >
         <Words text={chapter.title} />{" "}
         {chapter.accent && (
@@ -384,10 +336,7 @@ function Beat({ chapter, last }: { chapter: Chapter; last: boolean }) {
       </p>
       {last && (
         <div className="sw-reveal mt-8 flex flex-wrap gap-3" style={{ "--d": "360ms" } as CSSProperties}>
-          <Link
-            href="/plan"
-            className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-deep transition hover:bg-gold-bright"
-          >
+          <Link href="/plan" className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-deep transition hover:bg-gold-bright">
             Plan a trip
           </Link>
           <Link

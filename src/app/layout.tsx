@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter } from "next/font/google";
 import { CurrencyProvider } from "@/components/currency/CurrencyProvider";
 import { AuthProvider } from "@/components/AuthProvider";
+import { DeferredFeedback } from "@/components/feedback/DeferredFeedback";
 import { PwaSupport } from "@/components/PwaSupport";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <AuthProvider>
           <CurrencyProvider>{children}</CurrencyProvider>
         </AuthProvider>
+        <DeferredFeedback />
         <PwaSupport />
       </body>
     </html>

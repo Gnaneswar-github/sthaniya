@@ -37,14 +37,25 @@ export function WhereNext({ destinations }: { destinations: Destination[] }) {
   const track = useRef<HTMLUListElement>(null);
   const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
   const [paused, setPaused] = useState(false);
+  const [onScreen, setOnScreen] = useState(false);
+
+  // Only drift while the rail can actually be seen: a smooth scroll animating off screen still
+  // costs frames while someone is reading the story above it.
+  useEffect(() => {
+    const element = track.current;
+    if (!element) return;
+    const observer = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
-    if (paused || reducedMotion()) return;
+    if (paused || !onScreen || reducedMotion()) return;
     const timer = window.setInterval(() => {
       if (!document.hidden && track.current) scrollTrack(track.current, 1);
     }, 3500);
     return () => window.clearInterval(timer);
-  }, [paused]);
+  }, [paused, onScreen]);
 
   if (destinations.length === 0) return null;
 
@@ -164,7 +175,7 @@ export function DestinationCard({ destination }: { destination: Destination }) {
           <div className="absolute inset-x-0 bottom-0 p-4">
             <h3 className="font-display text-2xl leading-tight text-white">{destination.name}</h3>
             {destination.countryName && <p className="text-sm text-white/75">{destination.countryName}</p>}
-            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/25 backdrop-blur transition group-hover:bg-gold-bright group-hover:text-deep group-hover:ring-gold-bright">
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-deep-2/55 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/25 transition group-hover:bg-gold-bright group-hover:text-deep group-hover:ring-gold-bright">
               Plan a trip <ArrowRightIcon className="h-3 w-3" />
             </span>
             {destination.thumbnailCredit && (
@@ -374,8 +385,18 @@ export function SurpriseMe() {
         />
       )}
       <div className="absolute inset-0 bg-gradient-to-r from-deep-2/95 via-deep-2/80 to-deep-2/40" />
-      <span aria-hidden className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-brand-bright/25 blur-3xl" />
-      <span aria-hidden className="absolute -bottom-24 left-10 h-56 w-56 rounded-full bg-gold-bright/20 blur-3xl" />
+      {/* Soft glows drawn as radial gradients: a blur filter on large shapes was one of the most
+          expensive things to raster as this section scrolled into view. */}
+      <span
+        aria-hidden
+        className="absolute -right-40 -top-48 h-[28rem] w-[28rem] rounded-full"
+        style={{ background: "radial-gradient(closest-side, rgba(47,191,135,0.28), rgba(47,191,135,0))" }}
+      />
+      <span
+        aria-hidden
+        className="absolute -bottom-48 -left-10 h-[26rem] w-[26rem] rounded-full"
+        style={{ background: "radial-gradient(closest-side, rgba(245,193,100,0.22), rgba(245,193,100,0))" }}
+      />
 
       <div className="relative grid gap-7 px-6 py-10 sm:px-10 sm:py-12 md:grid-cols-[1fr_auto] md:items-center">
         <div className="min-w-0">
