@@ -16,7 +16,9 @@ export const PUNE_CURRENCY = "INR";
  * `coords` come from OpenStreetMap and are present only where the geocoder returned a
  * match a human then checked. Several small businesses are simply not in OSM, and two
  * early matches were wrong (a different Parvati, a suburban Chitale branch), so those
- * are left absent rather than filled with a plausible-looking guess.
+ * are left absent rather than filled with a plausible-looking guess. The coords for
+ * Dagdusheth, Bedekar, Parvati, Taljai and the Pu La garden were added from clear OSM name
+ * matches by an automated fact-check (2026-09-15) and still await that human check.
  *
  * `priceBand` and `durationMinutes` are planning estimates, surfaced as estimates.
  */
@@ -29,6 +31,7 @@ export const PUNE: Recommendation[] = [
     category: "temple",
     priceBand: "free",
     durationMinutes: 45,
+    coords: { lat: 18.51643, lng: 73.85611 },
     interests: ["spiritual", "local_life"],
     timeWindow: { start: "06:30", end: "08:00" },
     vibe: "Bright, loud, genuinely moving",
@@ -164,11 +167,12 @@ export const PUNE: Recommendation[] = [
     category: "food",
     priceBand: "low",
     durationMinutes: 30,
+    coords: { lat: 18.51481, lng: 73.84994 },
     interests: ["food"],
     timeWindow: { start: "08:30", end: "10:00" },
     vibe: "Tiny, brisk, deadly serious about misal",
     description:
-      "Pune misal at its sharpest. Order the kat separately if you want to survive it, and don't linger — nobody does.",
+      "Pune misal at its sharpest. Order the kat separately if you want to survive it, and don't linger — nobody does. Closed Mondays.",
     whyItFits: {
       food: "If you eat one thing in Pune that you can't get properly anywhere else, make it this.",
     },
@@ -184,6 +188,7 @@ export const PUNE: Recommendation[] = [
     category: "outdoors",
     priceBand: "free",
     durationMinutes: 90,
+    coords: { lat: 18.49757, lng: 73.84707 },
     interests: ["spiritual", "nature", "photography"],
     timeWindow: { start: "06:00", end: "07:30" },
     vibe: "Stone steps, morning walkers, whole-city view",
@@ -208,7 +213,7 @@ export const PUNE: Recommendation[] = [
     durationMinutes: 45,
     coords: { lat: 18.52695, lng: 73.84985 },
     interests: ["spiritual", "history", "architecture"],
-    timeWindow: { start: "07:30", end: "09:00" },
+    timeWindow: { start: "08:30", end: "10:00" },
     vibe: "Dark, cool, startlingly old",
     description:
       "An 8th-century temple cut straight out of basalt, sitting in the middle of a busy road. Most people drive past it daily.",
@@ -344,6 +349,7 @@ export const PUNE: Recommendation[] = [
     category: "outdoors",
     priceBand: "free",
     durationMinutes: 90,
+    coords: { lat: 18.47582, lng: 73.8424 },
     interests: ["nature", "photography"],
     timeWindow: { start: "06:30", end: "08:00" },
     vibe: "Wooded, quiet, thinner crowd than Vetal",
@@ -388,6 +394,7 @@ export const PUNE: Recommendation[] = [
     category: "outdoors",
     priceBand: "low",
     durationMinutes: 90,
+    coords: { lat: 18.49108, lng: 73.83815 },
     interests: ["nature", "photography"],
     timeWindow: { start: "08:00", end: "09:30" },
     vibe: "Japanese-garden calm, water, raked stone",
