@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MoodGrid, SurpriseMe, WhereNext } from "@/components/DiscoverRails";
 import { ScrollWorld } from "@/components/ScrollWorld";
 import { Footer, Nav } from "@/components/Shell";
-import { dailyPicks } from "@/lib/destinations/curation";
+import { cityPicks, dailyPicks } from "@/lib/destinations/curation";
 
 /** Re-rendered hourly, so the "fresh picks" genuinely change from one day to the next. */
 export const revalidate = 3600;
@@ -25,7 +25,7 @@ export default function Home() {
           <MoodGrid />
         </Suspense>
         <Suspense>
-          <SurpriseMe />
+          <SurpriseMe pool={cityPicks()} />
         </Suspense>
       </main>
 

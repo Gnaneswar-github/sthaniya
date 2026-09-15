@@ -10,7 +10,9 @@ import "./globals.css";
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
-  axes: ["SOFT", "WONK", "opsz"],
+  // Optical sizing only: the SOFT and WONK axes were never set anywhere, yet made the font file
+  // larger and every text layout more expensive.
+  axes: ["opsz"],
 });
 
 const inter = Inter({

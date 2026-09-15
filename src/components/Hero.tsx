@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DictationButton } from "./voice/DictationButton";
-import { DESTINATIONS } from "@/lib/destinations/curation";
+import type { CityPick } from "@/lib/moods";
 import { appendSpoken } from "@/lib/voice";
 
 /** Short enough to sit on one line in the pill — a clipped placeholder reads as a bug. */
@@ -19,28 +19,17 @@ const PLACEHOLDERS = [
 const EXAMPLE =
   "3 days in Tokyo with my wife. We love local food, quiet temples and photography. We don't like crowded tourist attractions. Budget around $200 per day.";
 
-/** Real curated places with real photography — never a list of cities we can't back up. */
-const QUICK_PICKS = [
-  "curated:tokyo",
-  "curated:kyoto",
-  "curated:lisbon",
-  "curated:istanbul",
-  "curated:marrakesh",
-];
-
 /**
  * The trip prompt: free text, a worked example and a few places to start. It lives inside the
- * first chapter of the homepage story, so it carries no background of its own.
+ * first chapter of the homepage story, so it carries no background of its own. `picks` come from
+ * the server — real curated places with real photography — so the destination catalogue never
+ * ships to the browser.
  */
-export function HeroPrompt() {
+export function HeroPrompt({ picks = [] }: { picks?: CityPick[] }) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [placeholder, setPlaceholder] = useState(PLACEHOLDERS[0]);
   const areaRef = useRef<HTMLTextAreaElement>(null);
-
-  const picks = QUICK_PICKS.map((id) => DESTINATIONS.find((d) => d.id === id)).filter(
-    (d): d is NonNullable<typeof d> => Boolean(d),
-  );
 
   // Rotating example, so the field reads as an invitation rather than a template.
   useEffect(() => {

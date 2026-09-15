@@ -1,6 +1,7 @@
 import { normalise } from "./fuzzy";
 import { CURATED, CURATED_EXTRACTS } from "./providers/curated";
 import type { Destination } from "./types";
+import type { CityPick } from "../moods";
 
 export function destinationById(id: string): Destination | undefined {
   return CURATED.find((d) => d.id === id || d.id === `curated:${id}`);
@@ -34,15 +35,12 @@ export function dailyPicks(count: number, date = new Date()): Destination[] {
   return pool.slice(0, count);
 }
 
-export const MOODS = [
-  { id: "slow", label: "Slow", prompt: "A slow few days with quiet mornings, long breakfasts and no fixed plans" },
-  { id: "romantic", label: "Romantic", prompt: "A romantic trip — sunsets, small restaurants and walks worth taking slowly" },
-  { id: "curious", label: "Curious", prompt: "A curious trip — odd museums, old neighbourhoods and things I can't explain to people back home" },
-  { id: "energetic", label: "Energetic", prompt: "An energetic trip — long days, lots of ground covered, no wasted afternoons" },
-  { id: "peaceful", label: "Peaceful", prompt: "Somewhere peaceful — parks, quiet temples and places I can sit without being hurried" },
-  { id: "cultural", label: "Cultural", prompt: "A cultural trip — heritage, local food, markets and the neighbourhoods people actually live in" },
-  { id: "adventurous", label: "Adventurous", prompt: "An adventurous trip — hills, early starts and getting properly out of the city" },
-  { id: "creative", label: "Creative", prompt: "A creative trip — photography, good light, texture and street life" },
-];
+export { MOODS } from "../moods";
 
 export { CURATED as DESTINATIONS };
+
+/** Cities with a licensed photo, reduced to what a homepage card shows. */
+export function cityPicks(ids?: string[]): CityPick[] {
+  const chosen = ids ? ids.map((id) => CURATED.find((d) => d.id === id)).filter((d): d is Destination => Boolean(d)) : CURATED;
+  return chosen.filter((d) => d.thumbnailUrl).map(({ id, name, thumbnailUrl }) => ({ id, name, thumbnailUrl }));
+}

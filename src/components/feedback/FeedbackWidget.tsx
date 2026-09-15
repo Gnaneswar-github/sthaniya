@@ -7,7 +7,6 @@ import { DictationButton } from "../voice/DictationButton";
 import { FEELINGS, FeelingFace } from "./Faces";
 import { appendSpoken } from "@/lib/voice";
 import { track } from "@/lib/analytics";
-import { supabase } from "@/lib/supabase";
 
 const TOPICS = [
   { id: "idea", label: "An idea" },
@@ -72,11 +71,13 @@ export function FeedbackWidget() {
       setPhase("sent");
       return;
     }
+    setPhase("sending");
+    // The database client loads only when a note is actually sent, never with the button itself.
+    const { supabase } = await import("@/lib/supabase").catch(() => ({ supabase: null }));
     if (!supabase) {
       setPhase("error");
       return;
     }
-    setPhase("sending");
     const { error } = await supabase.from("feedback").insert({
       feeling,
       topic,

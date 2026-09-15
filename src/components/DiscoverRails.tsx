@@ -7,8 +7,8 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { ArrowRightIcon } from "./icons";
 import { PinIcon } from "./MapLink";
 import { PlaceArt } from "./PlaceArt";
-import { DESTINATIONS, MOODS } from "@/lib/destinations/curation";
 import type { Destination } from "@/lib/destinations/types";
+import { MOODS, type CityPick } from "@/lib/moods";
 import { googleMapsUrl } from "@/lib/maps";
 
 const reducedMotion = () =>
@@ -292,7 +292,7 @@ function MoodTile({ mood }: { mood: (typeof MOODS)[number] }) {
       title={mood.prompt}
       onPointerMove={move}
       onPointerLeave={leave}
-      className={`mood-tile group relative flex h-40 flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br p-4 text-white shadow-[0_18px_40px_-26px_rgba(13,47,66,0.85)] transition-[transform,box-shadow] duration-200 ease-out will-change-transform hover:shadow-[0_28px_60px_-28px_rgba(13,47,66,0.9)] sm:h-48 sm:p-5 ${look.gradient}`}
+      className={`mood-tile group relative flex h-40 flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br p-4 text-white shadow-[0_18px_40px_-26px_rgba(13,47,66,0.85)] transition-[transform,box-shadow] duration-200 ease-out hover:shadow-[0_28px_60px_-28px_rgba(13,47,66,0.9)] sm:h-48 sm:p-5 ${look.gradient}`}
     >
       <span
         aria-hidden
@@ -333,11 +333,10 @@ function MoodTile({ mood }: { mood: (typeof MOODS)[number] }) {
  * A slot machine for the undecided: city and mood reels spin, slow and land, the city's photo
  * fades in behind, and the result is one tap from a plan. Reduced motion lands instantly.
  */
-export function SurpriseMe() {
+export function SurpriseMe({ pool }: { pool: CityPick[] }) {
   const router = useRouter();
-  const pool = DESTINATIONS.filter((d) => d.thumbnailUrl);
   const [phase, setPhase] = useState<"idle" | "spinning" | "landed">("idle");
-  const [pick, setPick] = useState({ city: pool[0] ?? DESTINATIONS[0], mood: MOODS[0] });
+  const [pick, setPick] = useState<{ city: CityPick; mood: (typeof MOODS)[number] }>({ city: pool[0], mood: MOODS[0] });
   const timers = useRef<number[]>([]);
 
   useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
@@ -347,7 +346,7 @@ export function SurpriseMe() {
   function spin() {
     timers.current.forEach((timer) => window.clearTimeout(timer));
     timers.current = [];
-    const final = { city: random(pool.length ? pool : DESTINATIONS), mood: random(MOODS) };
+    const final = { city: random(pool), mood: random(MOODS) };
 
     if (reducedMotion()) {
       setPick(final);
@@ -363,13 +362,14 @@ export function SurpriseMe() {
       const last = i === ticks - 1;
       timers.current.push(
         window.setTimeout(() => {
-          setPick(last ? final : { city: random(pool.length ? pool : DESTINATIONS), mood: random(MOODS) });
+          setPick(last ? final : { city: random(pool), mood: random(MOODS) });
           if (last) setPhase("landed");
         }, at),
       );
     }
   }
 
+  if (!pick.city) return null;
   const planHref = `/plan?q=${encodeURIComponent(`${pick.mood.prompt} in ${pick.city.name}`)}`;
 
   return (

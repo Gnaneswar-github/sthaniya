@@ -1,19 +1,21 @@
-"use client";
-
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { HeroPrompt } from "./Hero";
 import { WaveDivider } from "./PageHero";
 import { CHAPTERS, type Chapter } from "./scroll-world/chapters";
-import type { FromWorld, ToWorld } from "./scroll-world/world.worker";
+import { StoryController } from "./scroll-world/StoryController";
+import { cityPicks } from "@/lib/destinations/curation";
 import { PHASES, type Phase } from "@/lib/phases";
+
+/** "Start somewhere" under the trip prompt: curated places with real photography. */
+const QUICK_PICKS = ["curated:tokyo", "curated:kyoto", "curated:lisbon", "curated:istanbul", "curated:marrakesh"];
 
 /**
  * The live Three.js island is opt-in. Measured on a laptop with integrated graphics it still
  * competed with scrolling and typing for the GPU — a 736 ms stalled keystroke at start-up — so
- * the default story is told with photographs that crossfade on the compositor, which never
- * blocks input. Set NEXT_PUBLIC_HERO_3D=1 to bring the island back on capable hardware.
+ * the default story is told with a photograph and tints that crossfade on the compositor, which
+ * never blocks input. Set NEXT_PUBLIC_HERO_3D=1 to bring the island back on capable hardware.
  */
 const WORLD_ENABLED = process.env.NEXT_PUBLIC_HERO_3D === "1";
 
@@ -29,149 +31,15 @@ const TINT: Record<Phase, string> = {
   dawn: "bg-gradient-to-r from-[#0b2b36]/90 via-[#1d6473]/60 to-[#f4bd8e]/35",
 };
 
-type Status = "loading" | "ready" | "fallback";
-
 /**
- * Exact chapter progress from native scroll: the integer part is the chapter, the fraction is
- * travel toward the next. Holds no history, so fast jumps, reverse scroll and reload-at-depth
- * all reproduce the same state.
- */
-function progressFrom(tops: number[], y: number) {
-  const last = tops.length - 1;
-  if (last <= 0 || y <= tops[0]) return 0;
-  for (let i = 0; i < last; i++) {
-    if (y < tops[i + 1]) return i + (y - tops[i]) / Math.max(1, tops[i + 1] - tops[i]);
-  }
-  return last;
-}
-
-/**
- * The homepage story. Native scroll is the only input: the exact progress picks the chapter,
- * which reveals its copy and fades in that chapter's photograph. Every word, link and the trip
- * prompt are real DOM; the imagery behind them is decoration.
+ * The homepage story, rendered on the server. Native scroll is the only input: StoryController
+ * marks the active chapter, its tint and the rail by attribute, so the story costs almost nothing
+ * to hydrate and scrolling never re-renders React. Every word, link and the trip prompt are real
+ * DOM; the imagery behind them is decoration.
  */
 export function ScrollWorld({ nav }: { nav: ReactNode }) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const sectionRefs = useRef<(HTMLElement | null)[]>([]);
-  const topsRef = useRef<number[]>([]);
-  const [active, setActive] = useState(0);
-  const [status, setStatus] = useState<Status>("loading");
-  const [railShown, setRailShown] = useState(true);
-
-  useEffect(() => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-
-    let disposed = false;
-    let shown = 0;
-    let worker: Worker | null = null;
-    let pendingProgress = 0;
-    let canvas: HTMLCanvasElement | null = null;
-
-    const measure = () => {
-      topsRef.current = sectionRefs.current.map((el) => (el ? el.getBoundingClientRect().top + window.scrollY : 0));
-    };
-    const exact = () => progressFrom(topsRef.current, window.scrollY);
-    const send = (message: ToWorld, transfer: Transferable[] = []) => worker?.postMessage(message, transfer);
-
-    const onScroll = () => {
-      const next = Math.round(exact());
-      if (next !== shown) {
-        shown = next;
-        setActive(next);
-      }
-      if (worker && !pendingProgress) {
-        pendingProgress = requestAnimationFrame(() => {
-          pendingProgress = 0;
-          send({ type: "progress", value: exact() });
-        });
-      }
-    };
-
-    measure();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    const resize = new ResizeObserver(measure);
-    resize.observe(document.documentElement);
-
-    // The rail sits at the middle of the screen, so it belongs to the story only while the story
-    // still covers that middle band — not while the wave is leaving and paper sits behind it.
-    const rail = new IntersectionObserver(([entry]) => setRailShown(entry.isIntersecting), { rootMargin: "-45% 0px -45% 0px" });
-    rail.observe(wrap);
-
-    const cleanups: (() => void)[] = [];
-    if (WORLD_ENABLED && stageRef.current) cleanups.push(startWorld(stageRef.current));
-
-
-    function startWorld(stage: HTMLDivElement) {
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-      // Drawn at most ~1280 device pixels wide and scaled up by the compositor.
-      const pixelRatio = () => Math.max(0.5, Math.min(window.devicePixelRatio || 1, 1280 / Math.max(1, window.innerWidth), 1.5));
-      canvas = document.createElement("canvas");
-      canvas.className = "absolute inset-0 h-full w-full";
-      stage.appendChild(canvas);
-
-      const device = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
-      const modest = (device.hardwareConcurrency ?? 8) <= 4 || (device.deviceMemory ?? 8) <= 4 || device.connection?.saveData === true;
-      if (modest || typeof Worker === "undefined" || typeof canvas.transferControlToOffscreen !== "function") {
-        return () => canvas?.remove();
-      }
-
-      const onResize = () => send({ type: "resize", width: window.innerWidth, height: window.innerHeight, pixelRatio: pixelRatio() });
-      window.addEventListener("resize", onResize);
-      const visibility = new IntersectionObserver(([entry]) => send({ type: "running", value: entry.isIntersecting && !document.hidden }));
-      visibility.observe(wrap!);
-      const onHidden = () => send({ type: "running", value: !document.hidden });
-      document.addEventListener("visibilitychange", onHidden);
-
-      worker = new Worker(new URL("./scroll-world/world.worker.ts", import.meta.url), { type: "module" });
-      worker.onmessage = ({ data }: MessageEvent<FromWorld>) => {
-        if (disposed) return;
-        if (data.type === "failed") {
-          worker?.terminate();
-          worker = null;
-          setStatus("fallback");
-        } else {
-          setStatus("ready");
-        }
-      };
-      const offscreen = canvas.transferControlToOffscreen();
-      send(
-        { type: "init", canvas: offscreen, width: window.innerWidth, height: window.innerHeight, pixelRatio: pixelRatio(), progress: exact(), reduced: reduced.matches },
-        [offscreen],
-      );
-
-      return () => {
-        window.removeEventListener("resize", onResize);
-        visibility.disconnect();
-        document.removeEventListener("visibilitychange", onHidden);
-        worker?.terminate();
-        worker = null;
-        canvas?.remove();
-      };
-    }
-
-    return () => {
-      disposed = true;
-      cancelAnimationFrame(pendingProgress);
-      window.removeEventListener("scroll", onScroll);
-      resize.disconnect();
-      rail.disconnect();
-      cleanups.forEach((cleanup) => cleanup());
-    };
-  }, []);
-
-  function goTo(index: number) {
-    const top = topsRef.current[index];
-    if (top === undefined) return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
-  }
-
-  const activePhase = CHAPTER_PHASE[Math.min(active, CHAPTER_PHASE.length - 1)];
-
   return (
-    <div ref={wrapRef} className="relative isolate bg-deep-2">
+    <div data-story className="relative isolate bg-deep-2">
       {nav}
 
       {/* One persistent layer for the whole story. Sticky, not fixed, so nothing intercepts the
@@ -181,25 +49,17 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
           {/* One photograph for the whole story; each chapter's time of day is a light tint over it.
               Four full-screen photos meant four large decodes and GPU uploads — measured as a
               stalled keystroke — while a tint is a gradient the compositor fades for free. */}
-          <Image
-            src={PHASES.sunset.image}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover object-[60%_center]"
-          />
+          <Image src={PHASES.sunset.image} alt="" fill priority sizes="100vw" className="object-cover object-[60%_center]" />
           {PHOTO_LAYERS.map((phase) => (
             <div
               key={phase}
-              className={`sw-tint absolute inset-0 transition-opacity duration-1000 ease-out ${TINT[phase]} ${phase === activePhase ? "opacity-100" : "opacity-0"}`}
+              data-tint={phase}
+              data-on={phase === CHAPTER_PHASE[0]}
+              className={`sw-tint absolute inset-0 opacity-0 transition-opacity duration-1000 ease-out data-[on=true]:opacity-100 ${TINT[phase]}`}
             />
           ))}
           {WORLD_ENABLED && (
-            <div
-              ref={stageRef}
-              className={`absolute inset-0 transition-opacity duration-700 ease-out ${status === "ready" ? "opacity-100" : "opacity-0"}`}
-            />
+            <div data-world-stage data-on={false} className="absolute inset-0 opacity-0 transition-opacity duration-700 ease-out data-[on=true]:opacity-100" />
           )}
           {/* Authored scrims keep copy legible over every time of day. */}
           <div className="absolute inset-0 bg-gradient-to-t from-deep-2/85 via-deep-2/25 to-deep-2/35 sm:bg-gradient-to-r sm:from-deep-2/80 sm:via-deep-2/30 sm:to-transparent" />
@@ -211,10 +71,9 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
         <section
           key={chapter.id}
           id={`story-${chapter.id}`}
-          ref={(el) => {
-            sectionRefs.current[index] = el;
-          }}
-          data-active={active === index}
+          data-chapter={index}
+          data-phase={CHAPTER_PHASE[Math.min(index, CHAPTER_PHASE.length - 1)]}
+          data-active={index === 0}
           aria-labelledby={`story-${chapter.id}-title`}
           className="sw-chapter relative z-10 flex items-center"
           style={{ minHeight: `${chapter.weight * 100}svh` }}
@@ -226,32 +85,25 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
       ))}
 
       <nav
+        data-rail
+        data-on
         aria-label="Story chapters"
-        className={`fixed right-4 top-1/2 z-20 hidden -translate-y-1/2 flex-col items-end gap-3.5 transition-opacity duration-500 sm:flex ${
-          railShown ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        className="fixed right-4 top-1/2 z-20 hidden -translate-y-1/2 flex-col items-end gap-3.5 transition-opacity duration-500 data-[on=false]:pointer-events-none data-[on=false]:opacity-0 sm:flex"
       >
         {CHAPTERS.map((chapter, index) => (
           <button
             key={chapter.id}
             type="button"
-            onClick={() => goTo(index)}
+            data-goto={index}
+            data-on={index === 0}
             aria-label={`Chapter ${index + 1}: ${chapter.label}`}
-            aria-current={active === index ? "step" : undefined}
+            aria-current={index === 0 ? "step" : undefined}
             className="group flex items-center gap-2.5 py-0.5"
           >
-            <span
-              className={`text-xs font-medium transition ${
-                active === index ? "text-white/85" : "text-transparent group-hover:text-white/75 group-focus-visible:text-white/75"
-              }`}
-            >
+            <span className="text-xs font-medium text-transparent transition group-hover:text-white/75 group-focus-visible:text-white/75 group-data-[on=true]:text-white/85">
               {chapter.label}
             </span>
-            <span
-              className={`h-2 w-2 rounded-full transition ${
-                active === index ? "scale-125 bg-gold-bright" : "ring-1 ring-white/60 group-hover:bg-white/60"
-              }`}
-            />
+            <span className="h-2 w-2 rounded-full ring-1 ring-white/60 transition group-hover:bg-white/60 group-data-[on=true]:scale-125 group-data-[on=true]:bg-gold-bright group-data-[on=true]:ring-0" />
           </button>
         ))}
       </nav>
@@ -260,9 +112,9 @@ export function ScrollWorld({ nav }: { nav: ReactNode }) {
         <WaveDivider />
       </div>
 
-      <p className="pointer-events-none absolute bottom-[62px] right-3 z-20 text-[10px] text-white/55 sm:bottom-[92px]">
-        {PHASES.sunset.credit}
-      </p>
+      <p className="pointer-events-none absolute bottom-[62px] right-3 z-20 text-[10px] text-white/55 sm:bottom-[92px]">{PHASES.sunset.credit}</p>
+
+      <StoryController world={WORLD_ENABLED} />
     </div>
   );
 }
@@ -301,14 +153,11 @@ function Intro({ chapter }: { chapter: Chapter }) {
           <Words text={chapter.accent ?? ""} offset={wordCount(chapter.title)} />
         </span>
       </h1>
-      <p
-        className="sw-reveal mt-5 max-w-xl text-[15px] leading-relaxed text-white/85 sm:text-lg"
-        style={{ "--d": "260ms" } as CSSProperties}
-      >
+      <p className="sw-reveal mt-5 max-w-xl text-[15px] leading-relaxed text-white/85 sm:text-lg" style={{ "--d": "260ms" } as CSSProperties}>
         {chapter.body}
       </p>
       <div className="sw-reveal mt-8 max-w-2xl" style={{ "--d": "380ms" } as CSSProperties}>
-        <HeroPrompt />
+        <HeroPrompt picks={cityPicks(QUICK_PICKS)} />
       </div>
     </div>
   );
@@ -328,10 +177,7 @@ function Beat({ chapter, last }: { chapter: Chapter; last: boolean }) {
           </span>
         )}
       </h2>
-      <p
-        className="sw-reveal mt-5 text-[15px] leading-relaxed text-white/85 sm:text-lg"
-        style={{ "--d": "240ms" } as CSSProperties}
-      >
+      <p className="sw-reveal mt-5 text-[15px] leading-relaxed text-white/85 sm:text-lg" style={{ "--d": "240ms" } as CSSProperties}>
         {chapter.body}
       </p>
       {last && (
@@ -339,10 +185,7 @@ function Beat({ chapter, last }: { chapter: Chapter; last: boolean }) {
           <Link href="/plan" className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-deep transition hover:bg-gold-bright">
             Plan a trip
           </Link>
-          <Link
-            href="#destinations"
-            className="rounded-full px-6 py-3 text-sm font-semibold text-white ring-1 ring-white/40 transition hover:bg-white/10"
-          >
+          <Link href="#destinations" className="rounded-full px-6 py-3 text-sm font-semibold text-white ring-1 ring-white/40 transition hover:bg-white/10">
             Explore destinations
           </Link>
         </div>
