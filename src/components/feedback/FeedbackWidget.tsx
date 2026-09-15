@@ -3,7 +3,9 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { CheckIcon, CloseIcon } from "../icons";
+import { DictationButton } from "../voice/DictationButton";
 import { FEELINGS, FeelingFace } from "./Faces";
+import { appendSpoken } from "@/lib/voice";
 import { track } from "@/lib/analytics";
 import { supabase } from "@/lib/supabase";
 
@@ -36,6 +38,7 @@ export function FeedbackWidget() {
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
+  const messageId = useId();
 
   // Escape closes, and focus returns to the button that opened it.
   useEffect(() => {
@@ -201,9 +204,18 @@ export function FeedbackWidget() {
                   </div>
                 </fieldset>
 
-                <label className="grid gap-1.5">
-                  <span className="text-sm font-semibold text-ink">Tell us more</span>
+                <div className="grid gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor={messageId} className="text-sm font-semibold text-ink">
+                      Tell us more
+                    </label>
+                    <DictationButton
+                      label="Speak your feedback"
+                      onText={(spoken) => setMessage((current) => appendSpoken(current, spoken).slice(0, MAX))}
+                    />
+                  </div>
                   <textarea
+                    id={messageId}
                     required
                     minLength={3}
                     maxLength={MAX}
@@ -216,7 +228,7 @@ export function FeedbackWidget() {
                   <span className="text-right text-xs tabular-nums text-ink-faint">
                     {message.length} / {MAX}
                   </span>
-                </label>
+                </div>
 
                 <label className="grid gap-1.5">
                   <span className="text-sm font-semibold text-ink">

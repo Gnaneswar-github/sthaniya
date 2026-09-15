@@ -3,7 +3,9 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { DictationButton } from "./voice/DictationButton";
 import { DESTINATIONS } from "@/lib/destinations/curation";
+import { appendSpoken } from "@/lib/voice";
 
 /** Short enough to sit on one line in the pill — a clipped placeholder reads as a bug. */
 const PLACEHOLDERS = [
@@ -69,7 +71,7 @@ export function HeroPrompt() {
   return (
     <>
       {/* Stacked on a phone: side by side, the button leaves too little room to read. */}
-      <div className="flex flex-col gap-2 rounded-3xl bg-white p-2.5 shadow-[0_24px_60px_-28px_rgba(7,28,41,0.9)] sm:flex-row sm:items-end sm:gap-2 sm:rounded-full">
+      <div className="relative flex flex-col gap-2 rounded-3xl bg-white p-2.5 pr-14 shadow-[0_24px_60px_-28px_rgba(7,28,41,0.9)] sm:flex-row sm:items-end sm:gap-2 sm:rounded-full sm:pr-2.5">
         <span aria-hidden className="hidden shrink-0 pb-2.5 pl-3 text-brand sm:block">
           <PinIcon />
         </span>
@@ -90,6 +92,16 @@ export function HeroPrompt() {
             }
           }}
           className="max-h-40 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none placeholder:text-ink-faint/80 sm:text-base"
+        />
+        <DictationButton
+          label="Describe your trip by voice"
+          className="absolute right-3 top-3 sm:static sm:mb-0.5"
+          onText={(spoken) => {
+            setText((current) => appendSpoken(current, spoken));
+            requestAnimationFrame(() => {
+              if (areaRef.current) grow(areaRef.current);
+            });
+          }}
         />
         {/* Never disabled: an empty click focuses the field rather than reading as broken. */}
         <button
@@ -117,7 +129,7 @@ export function HeroPrompt() {
         >
           Try a full example
         </button>
-        <span className="text-xs text-white/55">Enter to go · Shift + Enter for a new line</span>
+        <span className="text-xs text-white/55">Enter to go · or tap the mic and just say it</span>
       </div>
 
       <div className="mt-7">

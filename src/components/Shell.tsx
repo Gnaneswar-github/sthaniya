@@ -61,6 +61,14 @@ export function Footer() {
           <p className="text-sm leading-relaxed text-ink-soft">
             Built for people with a few days in an unfamiliar city and no local friend to ask.
           </p>
+          <p className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
+            <Link href="/stories" className="font-semibold text-brand hover:underline">
+              Traveller stories
+            </Link>
+            <Link href="/stories/share" className="font-semibold text-brand hover:underline">
+              Share your story
+            </Link>
+          </p>
         </div>
 
         <div className="space-y-2 text-sm">

@@ -6,13 +6,16 @@ import { ArrowRightIcon, DropletIcon } from "@/components/icons";
 import { PinIcon } from "@/components/MapLink";
 import { WaveDivider } from "@/components/PageHero";
 import { Footer, Nav } from "@/components/Shell";
+import { StoryCard } from "@/components/stories/StoryCard";
 import { lastYearByMonth } from "@/lib/climate";
 import { MOODS } from "@/lib/destinations/curation";
 import { firstSentences, GUIDES, guideBySlug } from "@/lib/guides";
 import { googleMapsUrl } from "@/lib/maps";
 import { SITE_URL } from "@/lib/site";
+import { publishedStories } from "@/lib/stories-server";
 
-export const revalidate = 2_592_000;
+// Hourly, so newly approved traveller stories reach the guide the same day.
+export const revalidate = 3600;
 export const dynamicParams = false;
 
 type Props = { params: Promise<{ slug: string }> };
@@ -40,7 +43,10 @@ export default async function GuidePage({ params }: Props) {
   const guide = guideBySlug((await params).slug);
   if (!guide) notFound();
 
-  const climate = guide.lat !== null && guide.lng !== null ? await lastYearByMonth(guide.lat, guide.lng) : null;
+  const [climate, stories] = await Promise.all([
+    guide.lat !== null && guide.lng !== null ? lastYearByMonth(guide.lat, guide.lng) : Promise.resolve(null),
+    publishedStories({ place: guide.name, realm: "earth", limit: 3 }),
+  ]);
   const hottest = climate ? Math.max(...climate.months.map((m) => m.high)) : 0;
   const coldest = climate ? Math.min(...climate.months.map((m) => m.low)) : 0;
   const span = Math.max(1, hottest - coldest);
@@ -164,6 +170,34 @@ export default async function GuidePage({ params }: Props) {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section className="space-y-5">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-display text-3xl text-ink sm:text-4xl">Stories from {guide.name}</h2>
+              <p className="mt-1.5 text-[15px] text-ink-soft">Real trips, shared by travellers and reviewed by our team.</p>
+            </div>
+            <Link
+              href={`/stories/share?place=${encodeURIComponent(guide.name)}`}
+              className="rounded-full border border-brand px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white"
+            >
+              + Share your story
+            </Link>
+          </div>
+          {stories.length > 0 ? (
+            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {stories.map((story) => (
+                <li key={story.id}>
+                  <StoryCard story={story} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-3xl border border-dashed border-line-strong px-5 py-8 text-center text-[15px] text-ink-soft">
+              Been to {guide.name}? Yours could be the first story here — type it or just say it.
+            </p>
+          )}
         </section>
 
         <section className="space-y-3">
