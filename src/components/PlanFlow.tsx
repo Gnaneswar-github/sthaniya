@@ -9,18 +9,19 @@ import { CheckIcon } from "./icons";
 import { PageHero } from "./PageHero";
 import { PlaceArt } from "./PlaceArt";
 import { TripView } from "./TripView";
-import { Understanding } from "./Understanding";
+import { Understanding, type ReadFrom } from "./Understanding";
 import { useCurrency } from "./currency/CurrencyProvider";
 import { track } from "@/lib/analytics";
 import { createCloudTrip } from "@/lib/cloud-trips";
 import { destinationByName, extractFor } from "@/lib/destinations/curation";
 import type { DraftMeta, GenerateEvent } from "@/lib/generate-events";
-import { legDates, mergeLegTrips, withLegs } from "@/lib/legs";
-import { parseIntent, type ParsedIntent } from "@/lib/parse-intent";
+import { prefsFromIntent } from "@/lib/intent/prefs";
+import { legDates, mergeLegTrips } from "@/lib/legs";
+import { parseIntent } from "@/lib/parse-intent";
 import { readTaste } from "@/lib/taste";
 import { buildTrip, usedPlaceIds } from "@/lib/trip-engine";
 import { clearTrip, loadTrip, saveTrip } from "@/lib/trip-storage";
-import { CATEGORIES, type Photo, type PlaceDetails, type Recommendation, type Trip, type TripPrefs } from "@/lib/types";
+import { CATEGORIES, INTERESTS, type Photo, type PlaceDetails, type Recommendation, type Trip, type TripPrefs } from "@/lib/types";
 
 type Stage = {
   step: "locating" | "mapping" | "choosing" | "retrying";
@@ -30,35 +31,7 @@ type Stage = {
   label?: string;
 };
 
-/**
- * Everything the parser missed falls back to a default the UI flags as a guess. The currency
- * falls back to whatever the traveller is browsing in — never to a fixed one.
- */
-function toPrefs(intent: ParsedIntent, raw: string, displayCurrency: string): TripPrefs {
-  const days = intent.durationDays?.value ?? 3;
-
-  // A named month moves the trip there; otherwise it starts tomorrow.
-  const start = intent.month
-    ? new Date(Date.UTC(intent.month.year, intent.month.month, 1))
-    : new Date(Date.now() + 86_400_000);
-  const end = new Date(start);
-  end.setUTCDate(start.getUTCDate() + Math.max(0, days - 1));
-
-  const base: TripPrefs = {
-    destination: intent.destination?.value ?? "",
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10),
-    travellerType: intent.travellerType?.value ?? "solo",
-    interests: intent.interests.length > 0 ? intent.interests.map((i) => i.value) : ["food", "local_life"],
-    dial: intent.dial?.value ?? "local",
-    pace: intent.pace?.value ?? "balanced",
-    budgetPerDay: intent.budgetPerDay?.value ?? 0,
-    budgetCurrency: intent.budgetPerDay?.currency ?? displayCurrency,
-    notes: raw,
-  };
-
-  return intent.legs ? withLegs(base, intent.legs.map(({ destination, days: d }) => ({ destination, days: d }))) : base;
-}
+const interestLabel = (id: string) => INTERESTS.find((i) => i.id === id)?.label ?? id;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -107,7 +80,9 @@ export function PlanFlow({ query }: { query: string }) {
   const { user, available: accountsAvailable } = useAuth();
   const router = useRouter();
   const intent = useMemo(() => parseIntent(query), [query]);
-  const [prefs, setPrefs] = useState<TripPrefs>(() => toPrefs(intent, query, currency));
+  // Read once, on arrival: later edits belong to the traveller, not the sentence.
+  const [initial] = useState(() => prefsFromIntent(intent, query, currency));
+  const [prefs, setPrefs] = useState<TripPrefs>(initial.prefs);
   const [trip, setTrip] = useState<Trip | null>(null);
   const [pool, setPool] = useState<Recommendation[]>([]);
   const [busy, setBusy] = useState(false);
@@ -117,14 +92,20 @@ export function PlanFlow({ query }: { query: string }) {
   const [error, setError] = useState<string | null>(null);
   const [accountState, setAccountState] = useState<"idle" | "saving" | "saved" | "signin">("idle");
 
-  const readFrom = {
+  const readFrom: ReadFrom = {
     destination: intent.legs ? intent.legs.map((l) => l.matched).join(" · ") : intent.destination?.matched,
-    startDate: intent.month ? `${intent.month.matched} · ${intent.durationDays?.matched ?? ""}`.trim() : intent.durationDays?.matched,
+    dates: [intent.dates?.matched, intent.durationDays?.matched].filter(Boolean).join(" · ") || undefined,
     travellerType: intent.travellerType?.matched,
-    interests: intent.interests[0]?.matched,
+    party: intent.party?.matched || undefined,
+    // Every phrase behind every chip: “temples” → Spiritual · “filter coffee” → Cafés.
+    interests:
+      intent.interests.length > 0
+        ? intent.interests.map((i) => `${i.matched.map((phrase) => `“${phrase}”`).join(", ")} → ${interestLabel(i.value)}`).join(" · ")
+        : undefined,
     dial: intent.dial?.matched,
-    pace: intent.pace?.matched,
-    budgetPerDay: intent.budgetPerDay?.matched,
+    pace: intent.pace?.matched ?? intent.mobility?.matched,
+    mobility: intent.mobility?.matched,
+    budget: intent.budget?.matched,
   };
 
   /** Real photos arrive after the trip is on screen, so they never slow it down. */
@@ -383,7 +364,7 @@ export function PlanFlow({ query }: { query: string }) {
           </blockquote>
         )}
 
-        {!stage && <Understanding prefs={prefs} readFrom={readFrom} avoid={intent.avoid} onChange={setPrefs} />}
+        {!stage && <Understanding prefs={prefs} readFrom={readFrom} guessed={initial.guessed} avoid={intent.avoid} onChange={setPrefs} />}
 
         {error && <p role="alert" className="rounded-2xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</p>}
 

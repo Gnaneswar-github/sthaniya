@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageHero } from "@/components/PageHero";
 import { Footer, Nav } from "@/components/Shell";
 import { StoryCard } from "@/components/stories/StoryCard";
+import { communitySections } from "@/lib/community";
 import { publishedStories } from "@/lib/stories-server";
 
 /** Approved stories appear within five minutes of review. */
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 export default async function StoriesPage() {
-  const stories = await publishedStories({ limit: 90 });
+  const [stories, sections] = await Promise.all([publishedStories({ limit: 90 }), communitySections()]);
   const earth = stories.filter((story) => story.realm === "earth");
   const beyond = stories.filter((story) => story.realm === "beyond");
 
@@ -31,9 +32,11 @@ export default async function StoriesPage() {
           <Link href="/stories/share" className="inline-flex rounded-full bg-gold-bright px-6 py-3 text-sm font-semibold text-deep transition hover:bg-white">
             Share your story
           </Link>
-          <Link href="/forum" className="inline-flex rounded-full px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/40 transition hover:bg-white/10">
-            Visit the forum
-          </Link>
+          {sections.forum && (
+            <Link href="/forum" className="inline-flex rounded-full px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/40 transition hover:bg-white/10">
+              Visit the forum
+            </Link>
+          )}
         </div>
       </PageHero>
 

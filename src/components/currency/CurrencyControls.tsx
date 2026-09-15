@@ -117,10 +117,13 @@ export function CurrencyInput({
   value,
   onChange,
   label = "Budget per day",
+  describe = true,
 }: {
   value: Money | null;
   onChange: (money: Money, period: BudgetPeriod) => void;
   label?: string;
+  /** Off when the parent explains the reading itself (total vs per day, per person). */
+  describe?: boolean;
 }) {
   const { currency } = useCurrency();
   const inputId = useId();
@@ -148,22 +151,26 @@ export function CurrencyInput({
         placeholder={`${getCurrency(currency)?.symbol ?? ""}150, 150 USD, LKR 15000…`}
         className="w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-ink-faint/60 focus:border-brand"
       />
-      <p className="text-xs text-ink-faint">
-        {text.trim() === "" ? (
-          "Leave blank if you'd rather not set one."
-        ) : parsed ? (
-          <>
-            Read as{" "}
-            <span className="text-moss">
-              {formatMoney(parsed.money)}
-              {parsed.period === "trip" ? " for the trip" : parsed.period === "person_day" ? " per person / day" : " / day"}
-            </span>
-            {!parsed.currencyFromText && ` — assuming ${parsed.money.currency}, change it above if not`}
-          </>
-        ) : (
-          <span className="text-gold">We couldn&rsquo;t read a number in that.</span>
-        )}
-      </p>
+      {describe ? (
+        <p className="text-xs text-ink-faint">
+          {text.trim() === "" ? (
+            "Leave blank if you'd rather not set one."
+          ) : parsed ? (
+            <>
+              Read as{" "}
+              <span className="text-moss">
+                {formatMoney(parsed.money)}
+                {parsed.period === "trip" ? " for the trip" : parsed.period === "person_day" ? " per person / day" : " / day"}
+              </span>
+              {!parsed.currencyFromText && ` — assuming ${parsed.money.currency}, change it above if not`}
+            </>
+          ) : (
+            <span className="text-gold">We couldn&rsquo;t read a number in that.</span>
+          )}
+        </p>
+      ) : (
+        text.trim() !== "" && !parsed && <p className="text-xs text-gold">We couldn&rsquo;t read a number in that.</p>
+      )}
     </div>
   );
 }

@@ -2,13 +2,15 @@ import Link from "next/link";
 import { AccountLink } from "./AccountLink";
 import { Wordmark } from "./Logo";
 import { CurrencySelector } from "./currency/CurrencyControls";
+import { communitySections } from "@/lib/community";
 
 /**
  * `overHero` gives the homepage a transparent nav that sits on the photograph; every other
  * page gets the solid paper treatment.
  */
-export function Nav({ overHero = false }: { overHero?: boolean }) {
+export async function Nav({ overHero = false }: { overHero?: boolean }) {
   const link = overHero ? "text-white/85 hover:text-white" : "text-ink-soft hover:text-brand";
+  const sections = await communitySections();
 
   return (
     <header
@@ -32,9 +34,11 @@ export function Nav({ overHero = false }: { overHero?: boolean }) {
             <span className="hidden sm:inline">City guides</span>
           </Link>
 
-          <Link href="/forum" className={`whitespace-nowrap rounded-lg px-2 py-2 text-sm transition sm:px-3 ${link}`}>
-            Forum
-          </Link>
+          {sections.forum && (
+            <Link href="/forum" className={`whitespace-nowrap rounded-lg px-2 py-2 text-sm transition sm:px-3 ${link}`}>
+              Forum
+            </Link>
+          )}
 
           <span className="mx-1.5 hidden sm:block">
             <CurrencySelector onHero={overHero} />
@@ -58,7 +62,9 @@ export function Nav({ overHero = false }: { overHero?: boolean }) {
   );
 }
 
-export function Footer() {
+export async function Footer() {
+  const sections = await communitySections();
+
   return (
     <footer className="mt-16 border-t border-line bg-paper-sunken">
       <div className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-12 sm:grid-cols-3">
@@ -67,17 +73,25 @@ export function Footer() {
           <p className="text-sm leading-relaxed text-ink-soft">
             Built for people with a few days in an unfamiliar city and no local friend to ask.
           </p>
-          <p className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
-            <Link href="/forum" className="font-semibold text-brand hover:underline">
-              Forum
-            </Link>
-            <Link href="/forum/ask" className="font-semibold text-brand hover:underline">
-              Ask a question
-            </Link>
-            <Link href="/stories" className="font-semibold text-brand hover:underline">
-              Traveller stories
-            </Link>
-          </p>
+          {(sections.forum || sections.stories) && (
+            <p className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
+              {sections.forum && (
+                <>
+                  <Link href="/forum" className="font-semibold text-brand hover:underline">
+                    Forum
+                  </Link>
+                  <Link href="/forum/ask" className="font-semibold text-brand hover:underline">
+                    Ask a question
+                  </Link>
+                </>
+              )}
+              {sections.stories && (
+                <Link href="/stories" className="font-semibold text-brand hover:underline">
+                  Traveller stories
+                </Link>
+              )}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2 text-sm">

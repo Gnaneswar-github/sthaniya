@@ -22,6 +22,9 @@ export type GenerationInput = {
   destination: string;
   /** Where in the world, for season and daylight reasoning. */
   countryName: string | null;
+  /** ISO country and state/region from the geocoder, for regional "usually open" rules. */
+  countryCode: string | null;
+  region: string | null;
   candidates: Candidate[];
   prefs: TripPrefs;
   /** Northern/southern hemisphere season at the travel dates, computed not guessed. */

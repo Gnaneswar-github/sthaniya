@@ -37,10 +37,16 @@ export const DIAL_POSITIONS = [
 
 export type DialPosition = (typeof DIAL_POSITIONS)[number]["id"];
 
+/**
+ * How well known a place is. Drafted places get these from map evidence, never from the model:
+ * "Hidden Gem" is reserved for places with real local evidence, so a place that merely lacks a
+ * Wikipedia page is a "Small local place", not a gem.
+ */
 export const LOCALITY_TAGS = {
   tourist_essential: "Tourist Essential",
   local_favourite: "Local Favourite",
   hidden_gem: "Hidden Gem",
+  small_local: "Small local place",
 } as const;
 
 export type LocalityTag = keyof typeof LOCALITY_TAGS;
@@ -67,6 +73,9 @@ export const CATEGORIES = {
   food: "Food",
   cafe: "Café",
   temple: "Temple",
+  church: "Church",
+  mosque: "Mosque",
+  worship: "Place of worship",
   sight: "Sight",
   museum: "Museum",
   market: "Market",
@@ -74,6 +83,8 @@ export const CATEGORIES = {
 } as const;
 
 export type Category = keyof typeof CATEGORIES;
+
+export const WORSHIP_CATEGORIES: Category[] = ["temple", "church", "mosque", "worship"];
 
 /**
  * Coarse bands rather than exact prices. We have no live pricing source, and inventing an
@@ -106,6 +117,34 @@ export type PlaceDetails = {
   fetchedAt: string;
 };
 
+/**
+ * The verifiable facts behind a drafted place, straight from OpenStreetMap and Wikipedia. Every
+ * word shown about a place, its category, its label and its local score are derived from these.
+ */
+export type PlaceFacts = {
+  amenity?: string;
+  tourism?: string;
+  historic?: string;
+  leisure?: string;
+  natural?: string;
+  religion?: string;
+  denomination?: string;
+  cuisine?: string;
+  wheelchair?: string;
+  fee?: string;
+  heritage?: string;
+  brand?: string;
+  website?: string;
+  /** Raw OSM `opening_hours`. Never shown to travellers as-is. */
+  openingHours?: string;
+  hasWikipedia?: boolean;
+  hasWikidata?: boolean;
+  /** Length of the English Wikipedia article in bytes: a sourced sign of how much there is to say about a place. */
+  articleLength?: number;
+  /** Straight-line distance from the destination's centre, in km. */
+  distanceKm?: number;
+};
+
 export type Recommendation = {
   id: string;
   name: string;
@@ -119,7 +158,7 @@ export type Recommendation = {
   durationMinutes: number;
   coords?: Coords;
   photo?: Photo;
-  /** OpenStreetMap `opening_hours`, shown verbatim with its source — never inferred. */
+  /** OpenStreetMap `opening_hours`. Humanised before display — never inferred. */
   openingHours?: string;
   /** Wikidata id and "lang:Title" when the map links the place; used to find a real photo. */
   wikidata?: string;
@@ -132,6 +171,7 @@ export type Recommendation = {
    * The scheduler honours it where it can and says so when it can't.
    */
   timeWindow: { start: string; end: string };
+  /** One line saying what the place is. Written by code from its facts for drafted places. */
   vibe: string;
   description: string;
   /** One line per interest this place speaks to, written to the user's chosen interest. */
@@ -144,6 +184,12 @@ export type Recommendation = {
   verified: boolean;
   /** Editorial rank within its own tag, 1 = strongest. Breaks ties in selection. */
   priority: number;
+  /** Map facts for drafted places. Absent on hand-seeded records. */
+  facts?: PlaceFacts;
+  /** True only when the map shows people book or pay to visit (attraction, museum, fee, heritage). */
+  bookable?: boolean;
+  /** A regional "usually open" rule from hours-defaults, used only when the map lists no hours. */
+  hoursRule?: string;
 };
 
 export const TRAVELLER_TYPES = [
@@ -164,6 +210,17 @@ export const PACES = [
 
 export type Pace = (typeof PACES)[number]["id"];
 
+export const MOBILITY = [
+  { id: "none", label: "No limits" },
+  { id: "limited", label: "Limited walking" },
+  { id: "wheelchair", label: "Wheelchair" },
+  { id: "pram", label: "Pram or stroller" },
+] as const;
+
+export type Mobility = (typeof MOBILITY)[number]["id"];
+
+export type BudgetBasis = "total" | "per_day";
+
 export type TripPrefs = {
   destination: string;
   /** ISO dates, "YYYY-MM-DD". */
@@ -174,15 +231,21 @@ export type TripPrefs = {
   /** The locality dial, carried over from v1 — it remains the product's differentiator. */
   dial: DialPosition;
   pace: Pace;
-  /** Kept in the currency the traveller typed. We have no FX source, so we don't convert. */
+  /** For the whole group, per day, derived from `budget` in one place (intent/budget.ts). */
   budgetPerDay: number;
   budgetCurrency: string;
+  /** What the traveller actually said: an amount, and whether it's for the trip or per day, per person. */
+  budget?: { amount: number; currency: string; basis: BudgetBasis; perPerson: boolean };
   /** The original sentence. Richer signal than any checkbox, so it is never silently dropped. */
   notes: string;
   /** Learned from this traveller's own edits on this device. Optional: a first trip has none. */
   taste?: TasteProfile;
   /** Multi-city route, in order. Present only for two or more cities; `destination` then reads "A → B". */
   legs?: { destination: string; days: number }[];
+  /** Getting around. Anything but "none" keeps days short and walking low. */
+  mobility?: Mobility;
+  adults?: number;
+  children?: number;
 };
 
 export type ItineraryItem = {
@@ -193,6 +256,8 @@ export type ItineraryItem = {
   durationMinutes: number;
   /** Set when the place could not be given its preferred window. */
   offPreferredWindow?: boolean;
+  /** Set when the place's known or usual hours leave no open slot at this point in the day. */
+  closedWarning?: boolean;
 };
 
 export type TripDay = {
@@ -210,5 +275,6 @@ export type Trip = {
   /** Plain-language shortfalls and explanations, surfaced rather than hidden. */
   notes: string[];
   createdAt: string;
+  /** The "don't miss" places for this trip: never removed by "More local" or "Slow it down". */
+  anchors?: { id: string; name: string }[];
 };
-

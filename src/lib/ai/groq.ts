@@ -1,37 +1,61 @@
+import { groundedPlace, type RawPlace } from "./place";
 import { ObjectScanner } from "./scanner";
 import type { GenerationInput, GenerationResult, GeneratorEvent, ItineraryGenerator } from "./types";
 import { readEnv } from "@/lib/env";
+import { categoryFromFacts, whatItIs } from "@/lib/grounding";
+import { travellersIn } from "@/lib/intent/party";
+import { describeHours, parseOpeningHours } from "@/lib/opening-hours";
 import type { Candidate } from "@/lib/places/overpass";
 import { tasteSummary } from "@/lib/taste";
-import { INTERESTS, type Category, type Interest, type LocalityTag, type Recommendation } from "@/lib/types";
+import { INTERESTS, type Interest, type Recommendation, type TripPrefs } from "@/lib/types";
 
 const ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 
-const CATEGORIES: Category[] = ["food", "cafe", "temple", "sight", "museum", "market", "outdoors"];
-const TAGS: LocalityTag[] = ["tourist_essential", "local_favourite", "hidden_gem"];
 const INTEREST_IDS = INTERESTS.map((i) => i.id) as Interest[];
 
-const SYSTEM = `You are a local guide writing for Nativa, a travel planner whose entire premise is that it does not invent places.
+const SYSTEM = `You are a local guide writing for Nativa, a travel planner whose entire premise is that it does not invent anything.
 
 Absolute rules:
-- You may ONLY use places from the CANDIDATES list. Never add a place from your own knowledge, however famous. If a candidate list has no good restaurant, return fewer places.
-- Never state a fact you cannot support from the candidate data: no prices, no ratings, no opening hours, no history, no claims about what a place serves unless the cuisine tag says so.
-- Write about atmosphere, timing and who a place suits. That is judgement, which is yours to give. Specific factual claims are not.
+- You may ONLY use places from the CANDIDATES list, by their ref. Never add a place from your own knowledge, however famous. If no candidate fits, return fewer places.
+- For each place, write a "whyItFits" line of at most 20 words saying how it answers what the traveller asked for.
+- A whyItFits line may draw on only two sources: the traveller's own words, and the facts printed for that candidate. Nothing else.
+- Never describe how a place looks: no materials, carvings, size, courtyards, gardens, seating, shade or views.
+- Never say a place is quiet, busy, hidden, crowded, peaceful or rarely visited.
+- Never say a place suits seniors, children or wheelchairs unless "wheelchair: yes" is printed for it.
+- Never give history, age, prices, ratings or opening hours that are not printed.
 - If you are unsure what a place actually is, leave it out.
 
-Voice: a knowledgeable friend who lives there. Warm, specific, unhurried. Never a listicle, never marketing, never "nestled" or "vibrant" or "must-visit".`;
+Voice: plain, warm and specific. Never "nestled", "vibrant" or "must-visit".`;
 
-const PLACE_SHAPE = `{"ref":"<candidate ref, must exist above>","category":"one of ${CATEGORIES.join("|")}","tag":"one of ${TAGS.join("|")}","interests":["from ${INTEREST_IDS.join("|")}"],"durationMinutes":<30-240>,"window":{"start":"HH:MM","end":"HH:MM"},"vibe":"<4-8 words, atmosphere only>","description":"<one or two sentences, no invented facts>","whyItFits":{"<interest id>":"<one line tying it to what they asked for>"}}`;
+const PLACE_SHAPE = `{"ref":"<candidate ref, must exist above>","interests":["from ${INTEREST_IDS.join("|")}"],"durationMinutes":<30-240>,"window":{"start":"HH:MM","end":"HH:MM"},"whyItFits":{"<interest id>":"<at most 20 words, from their words and this place's printed facts only>"}}`;
+
+const MOBILITY_LINE: Record<string, string> = {
+  none: "no limits",
+  limited: "limited walking: keep visits short and places close to the centre and to each other",
+  wheelchair: "wheelchair user: prefer places printed with wheelchair: yes, and keep places close together",
+  pram: "pushing a pram or stroller: keep places close together",
+};
+
+function candidateLine(candidate: Candidate): string {
+  const category = categoryFromFacts(candidate.facts, candidate.name);
+  const hours = parseOpeningHours(candidate.facts.openingHours);
+  const parts = [candidate.ref, candidate.name, whatItIs(category, candidate.facts)];
+  if (candidate.facts.distanceKm !== undefined) parts.push(`${candidate.facts.distanceKm} km from centre`);
+  if (hours) parts.push(`hours: ${describeHours(hours)}`);
+  if (candidate.facts.wheelchair) parts.push(`wheelchair: ${candidate.facts.wheelchair}`);
+  return parts.join(" | ");
+}
+
+function groupLine(prefs: TripPrefs): string {
+  const { adults, children } = travellersIn(prefs);
+  const people = `${adults} ${adults === 1 ? "adult" : "adults"}${children > 0 ? `, ${children} ${children === 1 ? "child" : "children"}` : ""}`;
+  return `${prefs.travellerType} (${people})`;
+}
 
 function userPrompt(input: GenerationInput, format: "object" | "lines"): string {
   const { prefs, candidates, destination, season, countryName, target } = input;
-  const lines = candidates.map(
-    (c) =>
-      `${c.ref} | ${c.name} | ${c.kind}${c.cuisine ? ` | cuisine: ${c.cuisine}` : ""}${
-        c.notable ? " | notable" : ""
-      }${c.openingHours ? ` | hours: ${c.openingHours}` : ""}`,
-  );
   const taste = tasteSummary(prefs.taste);
+  const days = Math.max(1, Math.round((Date.parse(prefs.endDate) - Date.parse(prefs.startDate)) / 86_400_000) + 1);
 
   const output =
     format === "lines"
@@ -40,40 +64,29 @@ function userPrompt(input: GenerationInput, format: "object" | "lines"): string 
 
   return `TRAVELLER
 Destination: ${destination}${countryName ? `, ${countryName}` : ""}
-Dates: ${prefs.startDate} to ${prefs.endDate} (${season})
-Group: ${prefs.travellerType}
+Dates: ${prefs.startDate} to ${prefs.endDate} (${days} ${days === 1 ? "day" : "days"}, ${season})
+Group: ${groupLine(prefs)}
+Getting around: ${MOBILITY_LINE[prefs.mobility ?? "none"]}
 Interests: ${prefs.interests.join(", ")}
 Pace: ${prefs.pace}
 How local they want to go: ${prefs.dial} (tourist = famous things, local = a mix, insider = almost no famous things)
-Budget per day: ${prefs.budgetPerDay > 0 ? `${prefs.budgetPerDay} ${prefs.budgetCurrency}` : "not stated"}
+Budget per day for the group: ${prefs.budgetPerDay > 0 ? `${prefs.budgetPerDay} ${prefs.budgetCurrency}` : "not stated"}
 In their own words: ${prefs.notes || "(nothing else given)"}
 Learned from their past edits: ${taste || "nothing yet"}
 
-CANDIDATES (the only places you may use)
-${lines.join("\n")}
+CANDIDATES (the only places you may use; each line is ref | name | what it is | facts)
+${candidates.map(candidateLine).join("\n")}
 
 TASK
 Choose about ${target} places that suit this traveller, this season and this pace.
 Spread them across the day: mornings, meals at sensible hours, evenings.
-Respect the locality preference when classifying.
-Cover what they asked for. Every interest listed above, and anything specific they named in their own words (for example "old churches"), must appear in the selection whenever a candidate fits it.
+Cover what they asked for: for every interest listed above, and anything specific they named in their own words, choose at least one place per day of the trip whenever candidates fit it.
+Where a candidate prints hours, choose a window when it is open.
 Meals are part of a day, not the whole of it: at most two restaurants or cafés per day of the trip.
 Do not choose a place that is the destination itself or an administrative area (a city, district, province or region) — only places a person can actually go to.
 
 ${output}`;
 }
-
-type RawPlace = {
-  ref?: string;
-  category?: string;
-  tag?: string;
-  interests?: string[];
-  durationMinutes?: number;
-  window?: { start?: string; end?: string };
-  vibe?: string;
-  description?: string;
-  whyItFits?: Record<string, string>;
-};
 
 type Selection = {
   byRef: Map<string, Candidate>;
@@ -81,8 +94,6 @@ type Selection = {
   rejected: string[];
   count: number;
 };
-
-const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export class GroqError extends Error {
   constructor(
@@ -94,11 +105,6 @@ export class GroqError extends Error {
   }
 }
 
-function clampDuration(value: unknown): number {
-  const n = typeof value === "number" ? value : 60;
-  return Math.min(240, Math.max(30, Math.round(n)));
-}
-
 function selection(input: GenerationInput): Selection {
   return { byRef: new Map(input.candidates.map((c) => [c.ref, c])), seen: new Set(), rejected: [], count: 0 };
 }
@@ -106,7 +112,7 @@ function selection(input: GenerationInput): Selection {
 /**
  * The guardrail. A place is only accepted if its ref matches a candidate we actually retrieved
  * from the map — so an invented restaurant cannot reach the itinerary even if the model writes
- * one. Everything else is clamped into range rather than trusted.
+ * one. Everything said about it is then grounded in that candidate's facts.
  */
 function toPlace(raw: RawPlace, input: GenerationInput, state: Selection): Recommendation | null {
   if (typeof raw.ref !== "string") return null;
@@ -117,40 +123,15 @@ function toPlace(raw: RawPlace, input: GenerationInput, state: Selection): Recom
   }
   if (state.seen.has(candidate.ref)) return null;
   state.seen.add(candidate.ref);
-
-  const interests = (raw.interests ?? []).filter((i): i is Interest => INTEREST_IDS.includes(i as Interest));
-  const start = TIME.test(raw.window?.start ?? "") ? raw.window!.start! : "10:00";
-  const end = TIME.test(raw.window?.end ?? "") ? raw.window!.end! : "12:00";
-
-  const whyItFits: Partial<Record<Interest, string>> = {};
-  for (const [key, line] of Object.entries(raw.whyItFits ?? {})) {
-    if (INTEREST_IDS.includes(key as Interest) && typeof line === "string") whyItFits[key as Interest] = line;
-  }
-
   state.count += 1;
-  return {
-    // The name always comes from the map, never from the model.
-    id: `ai-${input.destination.toLowerCase().replace(/\s+/g, "-")}-${candidate.ref}`,
-    name: candidate.name,
+
+  return groundedPlace(raw, candidate, {
     destination: input.destination,
-    tag: TAGS.includes(raw.tag as LocalityTag) ? (raw.tag as LocalityTag) : "local_favourite",
-    category: CATEGORIES.includes(raw.category as Category) ? (raw.category as Category) : "sight",
-    // Always unknown: the model has no pricing source. Prices appear only where a person checked.
-    priceBand: "unknown",
-    durationMinutes: clampDuration(raw.durationMinutes),
-    coords: candidate.coords,
-    openingHours: candidate.openingHours,
-    wikidata: candidate.wikidata,
-    wikipedia: candidate.wikipedia,
-    interests: interests.length > 0 ? interests : ["local_life"],
-    timeWindow: { start, end },
-    vibe: (raw.vibe ?? "").slice(0, 80) || candidate.kind,
-    description: (raw.description ?? "").slice(0, 400),
-    whyItFits,
-    evidenceSource: "openstreetmap+ai",
-    verified: false,
+    brief: input.prefs.notes ?? "",
+    region: input.region,
+    countryCode: input.countryCode,
     priority: state.count,
-  };
+  });
 }
 
 export class GroqGenerator implements ItineraryGenerator {
@@ -184,7 +165,7 @@ export class GroqGenerator implements ItineraryGenerator {
         // gpt-oss reasons before answering and those tokens count against the per-minute limit.
         // "low" measured 23 reasoning tokens against 400 at the default, for the same choices.
         reasoning_effort: "low",
-        temperature: 0.5,
+        temperature: 0.4,
         max_tokens: 4000,
       }),
       signal: AbortSignal.timeout(40_000),

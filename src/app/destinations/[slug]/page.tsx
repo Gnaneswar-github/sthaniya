@@ -13,6 +13,7 @@ import { firstSentences, GUIDES, guideBySlug } from "@/lib/guides";
 import { googleMapsUrl } from "@/lib/maps";
 import { SITE_URL } from "@/lib/site";
 import { publishedStories } from "@/lib/stories-server";
+import { communitySections } from "@/lib/community";
 
 // Hourly, so newly approved traveller stories reach the guide the same day.
 export const revalidate = 3600;
@@ -43,9 +44,10 @@ export default async function GuidePage({ params }: Props) {
   const guide = guideBySlug((await params).slug);
   if (!guide) notFound();
 
-  const [climate, stories] = await Promise.all([
+  const [climate, stories, sections] = await Promise.all([
     guide.lat !== null && guide.lng !== null ? lastYearByMonth(guide.lat, guide.lng) : Promise.resolve(null),
     publishedStories({ place: guide.name, realm: "earth", limit: 3 }),
+    communitySections(),
   ]);
   const hottest = climate ? Math.max(...climate.months.map((m) => m.high)) : 0;
   const coldest = climate ? Math.min(...climate.months.map((m) => m.low)) : 0;
@@ -172,6 +174,7 @@ export default async function GuidePage({ params }: Props) {
           </ul>
         </section>
 
+        {sections.stories && (
         <section className="space-y-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -199,6 +202,7 @@ export default async function GuidePage({ params }: Props) {
             </p>
           )}
         </section>
+        )}
 
         <section className="space-y-3">
           <h2 className="font-display text-2xl text-ink">More city guides</h2>

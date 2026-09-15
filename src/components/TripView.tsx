@@ -12,6 +12,7 @@ import type { Member, Vote } from "@/lib/cloud-trips";
 import { formatMoney } from "@/lib/currency/format";
 import { dayColor } from "@/lib/day-colors";
 import { dayDirectionsUrl, tripToIcs, tripToText } from "@/lib/export";
+import { travellersIn } from "@/lib/intent/party";
 import { encodeTrip } from "@/lib/share";
 import { recordTaste } from "@/lib/taste";
 import {
@@ -19,6 +20,7 @@ import {
   addSimilar,
   alternativesFor,
   durationLabel,
+  hopKm,
   makeCheaper,
   makeMoreLocal,
   moveItem,
@@ -32,10 +34,13 @@ import {
   tripCost,
   tripCostCurrency,
   tripLocalScore,
+  tripNotes,
+  tripSummary,
   tripTravelMinutes,
   usedPlaceIds,
   whyItFitsLine,
   REPLACE_REASONS,
+  WALKING_LIMIT_KM,
   type ReplaceReason,
 } from "@/lib/trip-engine";
 import { CATEGORIES, INTERESTS, LOCALITY_TAGS, type Category, type Recommendation, type Trip } from "@/lib/types";
@@ -43,8 +48,11 @@ import { describeWeather, type TripWeather } from "@/lib/weather";
 
 const interestLabel = (id: string) => INTERESTS.find((i) => i.id === id)?.label ?? id;
 
-/** Places people tend to book ahead; food and cafés are walk-in. */
-const BOOKABLE: Category[] = ["sight", "museum", "outdoors", "temple"];
+/** Hand-checked places carry no map facts; for them, the kinds people tend to book ahead. */
+const BOOKABLE_SEEDED: Category[] = ["sight", "museum", "outdoors"];
+
+/** "Tickets & tours" only where the map shows people book or pay — never on a small free shrine. */
+const showTours = (place: Recommendation) => place.bookable ?? (!place.facts && BOOKABLE_SEEDED.includes(place.category));
 
 function dayLabel(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" });
@@ -234,6 +242,8 @@ export function TripView({
   }
 
   const cities = [...new Set(trip.days.map((d) => d.destination ?? trip.prefs.destination))];
+  // Limited walking, a wheelchair or a pram: directions by car, and a nudge on longer hops.
+  const byCar = Boolean(trip.prefs.mobility && trip.prefs.mobility !== "none");
 
   return (
     <div className="grid gap-8 lg:grid-cols-12">
@@ -299,6 +309,7 @@ export function TripView({
             )}
             <Fact label="Getting around" value={durationLabel(stats.travel)} unit="allowed" />
           </dl>
+          <p className="text-sm text-ink-soft">{tripSummary(trip)}</p>
         </div>
 
         {collab && <CollabPanel collab={collab} />}
@@ -334,7 +345,7 @@ export function TripView({
 
         <BookingCard trip={trip} cities={cities} />
 
-        {trip.notes.map((note) => (
+        {tripNotes(trip).map((note) => (
           <p key={note} className="rounded-2xl border border-gold/30 bg-gold/5 px-4 py-3 text-[15px] leading-relaxed text-ink-soft">
             {note}
           </p>
@@ -375,7 +386,7 @@ export function TripView({
 
         {trip.days.map((day, dayIndex) => {
           const forecast = weatherByDate.get(day.date);
-          const directions = dayDirectionsUrl(day.items);
+          const directions = dayDirectionsUrl(day.items, byCar ? "driving" : "walking");
           const color = dayColor(dayIndex);
           const city = day.destination ?? trip.prefs.destination;
           const previousCity = dayIndex > 0 ? (trip.days[dayIndex - 1].destination ?? trip.prefs.destination) : city;
@@ -417,7 +428,7 @@ export function TripView({
                       className="no-print inline-flex items-center gap-1.5 rounded-full bg-paper-raised px-3 py-1 text-xs font-medium text-ink-soft ring-1 ring-line transition hover:text-brand hover:ring-brand"
                     >
                       <svg aria-hidden viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 20l-5-2V4l5 2 6-2 5 2v14l-5-2-6 2ZM9 6v14M15 4v14" /></svg>
-                      Route in Google Maps
+                      {byCar ? "Route by car in Google Maps" : "Route in Google Maps"}
                     </a>
                   )}
                 </div>
@@ -453,6 +464,7 @@ export function TripView({
                   }}
                   className={`space-y-2 rounded-3xl transition ${dropTarget === item.itemId ? "ring-2 ring-brand ring-offset-4 ring-offset-paper" : ""}`}
                 >
+                  {byCar && index > 0 && <HopHint from={day.items[index - 1].place} to={item.place} />}
                   <ItemCard
                     item={item}
                     stop={index + 1}
@@ -467,7 +479,7 @@ export function TripView({
                     vote={collab ? (votesByPlace.get(item.place.id) ?? { up: 0, down: 0, mine: 0, names: [] }) : undefined}
                     onVote={collab ? (value) => collab.onVote(item.place.id, value) : undefined}
                     tours={
-                      BOOKABLE.includes(item.place.category)
+                      showTours(item.place)
                         ? {
                             ...toursLink(`${item.place.name}, ${item.place.destination}`),
                             onClick: () => track("booking_clicked", { kind: "tours", category: item.place.category }),
@@ -650,6 +662,8 @@ function BookingCard({ trip, cities }: { trip: Trip; cities: string[] }) {
             checkin: cityDays[0]?.date ?? firstDate,
             checkout: nextDay(cityDays.at(-1)?.date ?? lastDate),
             travellerType: trip.prefs.travellerType,
+            adults: travellersIn(trip.prefs).adults,
+            children: travellersIn(trip.prefs).children,
           });
           const tours = toursLink(city);
           return (
@@ -746,6 +760,20 @@ function ReplacePanel({
         </div>
       ))}
     </div>
+  );
+}
+
+/** A longer hop between stops, for anyone who shouldn't walk it. Straight-line distance, said as "about". */
+function HopHint({ from, to }: { from: Recommendation; to: Recommendation }) {
+  const km = hopKm(from, to);
+  if (km === null || km <= WALKING_LIMIT_KM) return null;
+  return (
+    <p className="flex items-center gap-1.5 px-3 text-xs text-ink-faint">
+      <svg aria-hidden viewBox="0 0 24 24" className="h-3.5 w-3.5 text-brand" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 16V11l2-5h10l2 5v5M5 16h14M5 16v2M19 16v2M7.5 13h.01M16.5 13h.01" />
+      </svg>
+      About {km.toFixed(1)} km from the previous stop — take a taxi rather than walk.
+    </p>
   );
 }
 

@@ -19,7 +19,7 @@ export function formatMoney(
       currency: money.currency.toUpperCase(),
       notation: options.compact ? "compact" : "standard",
       ...(options.maximumFractionDigits !== undefined
-        ? { maximumFractionDigits: options.maximumFractionDigits }
+        ? { minimumFractionDigits: 0, maximumFractionDigits: options.maximumFractionDigits }
         : {}),
     }).format(money.amount);
   } catch {

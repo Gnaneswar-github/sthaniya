@@ -58,10 +58,11 @@ export function tripToIcs(trip: Trip): string {
 }
 
 /**
- * Google Maps directions through a day's stops, in order, on foot. The URL scheme allows a
- * limited number of waypoints, so very long days are trimmed to the first ten stops.
+ * Google Maps directions through a day's stops, in order. On foot by default; by car when someone
+ * in the group can't walk far, uses a wheelchair or pushes a pram. The URL scheme allows a limited
+ * number of waypoints, so very long days are trimmed to the first ten stops.
  */
-export function dayDirectionsUrl(items: ItineraryItem[]): string | null {
+export function dayDirectionsUrl(items: ItineraryItem[], travelMode: "walking" | "driving" = "walking"): string | null {
   if (items.length === 0) return null;
   const point = (item: ItineraryItem) =>
     item.place.coords ? `${item.place.coords.lat},${item.place.coords.lng}` : `${item.place.name}, ${item.place.destination}`;
@@ -73,7 +74,7 @@ export function dayDirectionsUrl(items: ItineraryItem[]): string | null {
     api: "1",
     origin: point(stops[0]),
     destination: point(stops[stops.length - 1]),
-    travelmode: "walking",
+    travelmode: travelMode,
   });
   const waypoints = stops.slice(1, -1).map(point);
   if (waypoints.length > 0) params.set("waypoints", waypoints.join("|"));

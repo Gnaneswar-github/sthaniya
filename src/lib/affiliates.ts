@@ -34,18 +34,19 @@ export function adultsFor(travellerType: TravellerType): number {
   return travellerType === "solo" || travellerType === "business" ? 1 : 2;
 }
 
-/** Places to stay for the trip's own dates and party. */
+/** Places to stay for the trip's own dates and party — the real headcount when the traveller gave one. */
 export function staysLink(
-  input: { city: string; checkin: string; checkout: string; travellerType: TravellerType },
+  input: { city: string; checkin: string; checkout: string; travellerType: TravellerType; adults?: number; children?: number },
   ids: AffiliateIds = AFFILIATE_IDS,
 ): BookingLink {
   const params = new URLSearchParams({
     ss: input.city,
     checkin: input.checkin,
     checkout: input.checkout,
-    group_adults: String(adultsFor(input.travellerType)),
+    group_adults: String(input.adults ?? adultsFor(input.travellerType)),
     no_rooms: "1",
   });
+  if (input.children && input.children > 0) params.set("group_children", String(input.children));
   if (ids.booking) params.set("aid", ids.booking);
   return { url: `https://www.booking.com/searchresults.html?${params}`, provider: "Booking.com" };
 }

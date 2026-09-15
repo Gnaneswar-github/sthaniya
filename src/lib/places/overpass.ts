@@ -1,23 +1,28 @@
 import type { Coords } from "@/lib/destinations/types";
+import { distanceKm } from "../geo";
+import type { PlaceFacts } from "../types";
 import { fetchWikiCandidates } from "./wikigeo";
 
 /**
- * Real, named places around a point, straight from OpenStreetMap.
+ * Real, named places around a point, straight from OpenStreetMap, joined with Wikipedia's
+ * geolocated articles.
  *
- * This exists so the language model never has to remember a city. It selects and describes
- * from these candidates instead of recalling restaurants from training data, which is where
- * invented addresses and long-closed cafés come from.
+ * This exists so the language model never has to remember a city. It selects from these
+ * candidates instead of recalling restaurants from training data, which is where invented
+ * addresses and long-closed cafés come from. Each candidate carries its verifiable facts, which
+ * are the only things any text about it may say.
  */
 
 export type Candidate = {
   /** Short id the model refers to. Anything it returns outside this set is dropped. */
   ref: string;
   name: string;
-  /** Raw OSM tags we kept, so the model can reason from facts rather than vibes. */
+  /** A readable kind from the main OSM tag, for balancing the list. */
   kind: string;
   coords: Coords;
-  /** True when OSM links this place to a Wikipedia article — a real prominence signal. */
+  /** True when OSM or Wikipedia links this place to an article, Wikidata or a heritage register. */
   notable: boolean;
+  facts: PlaceFacts;
   cuisine?: string;
   website?: string;
   openingHours?: string;
@@ -34,6 +39,7 @@ const ENDPOINTS = [
 
 type OverpassElement = {
   id: number;
+  type?: string;
   lat?: number;
   lon?: number;
   center?: { lat: number; lon: number };
@@ -42,8 +48,11 @@ type OverpassElement = {
 
 /**
  * Nodes for points of interest, ways only for parks (which are rarely a single point).
- * `nwr` across every clause reliably 504s on the public instance — this shape is what it
- * actually serves.
+ *
+ * Kept byte-for-byte stable on purpose: responses are cached for a week per URL, so an unchanged
+ * query keeps serving a town's places on the days the public instance is down. Heavier shapes —
+ * `nwr`, ways for temples, key filters — measured as timeouts there, so landmarks mapped as
+ * compounds come from Wikipedia instead (see `mergeWikipedia`).
  */
 function buildQuery(coords: Coords, radiusMetres: number): string {
   const at = `around:${radiusMetres},${coords.lat},${coords.lng}`;
@@ -73,24 +82,42 @@ function displayName(tags: Record<string, string>): string {
 }
 
 function describeKind(tags: Record<string, string>): string {
-  return (
-    tags.tourism ??
-    tags.historic ??
-    tags.amenity ??
-    tags.leisure ??
-    tags.shop ??
-    "place"
-  ).replace(/_/g, " ");
+  return (tags.tourism ?? tags.historic ?? tags.amenity ?? tags.leisure ?? tags.natural ?? tags.shop ?? "place").replace(/_/g, " ");
+}
+
+function factsFrom(tags: Record<string, string>, distance: number): PlaceFacts {
+  const facts: PlaceFacts = {
+    amenity: tags.amenity,
+    tourism: tags.tourism,
+    historic: tags.historic,
+    leisure: tags.leisure,
+    natural: tags.natural,
+    religion: tags.religion,
+    denomination: tags.denomination,
+    cuisine: tags.cuisine,
+    wheelchair: tags.wheelchair,
+    fee: tags.fee,
+    heritage: tags.heritage,
+    brand: tags.brand,
+    website: tags.website ?? tags["contact:website"],
+    openingHours: tags.opening_hours,
+    hasWikipedia: Boolean(tags.wikipedia),
+    hasWikidata: Boolean(tags.wikidata),
+    distanceKm: Math.round(distance * 10) / 10,
+  };
+  // Drop empty keys: facts travel inside share links, so they should stay small.
+  return Object.fromEntries(Object.entries(facts).filter(([, value]) => value !== undefined && value !== false)) as PlaceFacts;
 }
 
 /**
  * GET, not POST. The main Overpass instance answers GET promptly but 504s on POST from here,
  * and the mirror times out entirely — so the request shape is load-bearing, not incidental.
  */
-async function query(endpoint: string, body: string, signal: AbortSignal): Promise<OverpassElement[]> {
-  const response = await fetch(`${endpoint}?data=${encodeURIComponent(body)}`, {
+async function query(endpoint: string, body: string, signal: AbortSignal, variant = ""): Promise<OverpassElement[]> {
+  const response = await fetch(`${endpoint}?data=${encodeURIComponent(body)}${variant}`, {
     headers: {
       Accept: "application/json",
+      // Unchanged, like the query: the cache key includes it.
       "User-Agent": "Nativa/0.7 (residency demo; https://github.com/Gnaneswar-github/sthaniya)",
     },
     // Cached for a week per query. The map around a city barely changes, and this turns the
@@ -99,7 +126,15 @@ async function query(endpoint: string, body: string, signal: AbortSignal): Promi
     signal,
   });
   if (!response.ok) throw new Error(`Overpass ${response.status}`);
-  return ((await response.json()) as { elements?: OverpassElement[] }).elements ?? [];
+  const result = (await response.json()) as { elements?: OverpassElement[]; remark?: string };
+  // A query that ran out of time still answers 200 — with no elements and a remark saying so — and
+  // a 200 is cached for the week. One retry under a different URL keeps a single timeout from hiding
+  // a town's places until the cache expires; Overpass ignores the extra parameter.
+  if (result.remark && /timed out|runtime error|out of memory/i.test(result.remark) && !result.elements?.length) {
+    if (!variant) return query(endpoint, body, signal, `&retry=${Math.floor(Date.now() / 3_600_000)}`);
+    throw new Error(`Overpass: ${result.remark.slice(0, 80)}`);
+  }
+  return result.elements ?? [];
 }
 
 const BUCKETS = ["eat", "culture", "worship", "green", "other"] as const;
@@ -108,7 +143,7 @@ function bucketOf(kind: string): (typeof BUCKETS)[number] {
   if (/cafe|restaurant|ice cream|food court|marketplace|bakery|deli/.test(kind)) return "eat";
   if (/museum|gallery|artwork|attraction|viewpoint|theatre|arts centre|memorial|monument|ruins|castle|archaeological|building|tomb/.test(kind)) return "culture";
   if (/place of worship|church|temple|mosque|shrine/.test(kind)) return "worship";
-  if (/park|garden|nature reserve/.test(kind)) return "green";
+  if (/park|garden|nature reserve|water/.test(kind)) return "green";
   return "other";
 }
 
@@ -146,8 +181,63 @@ function balance(candidates: Candidate[], limit: number): Candidate[] {
   return picked.map((candidate, index) => ({ ...candidate, ref: `p${index}` }));
 }
 
+const GENERIC_WORDS = /\b(?:sri|shri|arulmigu|thirumigu|temple|kovil|koil|church|cathedral|mosque|masjid|the)\b/gi;
+
+/** "Arulmigu Sarangapani Temple" and "Sarangapani Temple (Kumbakonam)" are the same place. */
+function nameKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\(.*?\)/g, " ")
+    .replace(/,.*$/, "")
+    .replace(GENERIC_WORDS, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function sameName(a: string, b: string): boolean {
+  const x = nameKey(a);
+  const y = nameKey(b);
+  return x.length >= 4 && y.length >= 4 && (x === y || x.includes(y) || y.includes(x));
+}
+
+/** A place mapped twice close together shows up twice; keep the better-described copy. */
+function dedupe(candidates: Candidate[]): Candidate[] {
+  const kept: Candidate[] = [];
+  const richness = (c: Candidate) => Object.keys(c.facts).length + (c.notable ? 5 : 0);
+  for (const candidate of [...candidates].sort((a, b) => richness(b) - richness(a))) {
+    const twin = kept.find((k) => sameName(k.name, candidate.name) && distanceKm(k.coords, candidate.coords) < 0.4);
+    if (!twin) kept.push(candidate);
+  }
+  return kept;
+}
+
+function toCandidate(element: OverpassElement, centre: Coords, index: number): Candidate | null {
+  const tags = element.tags ?? {};
+  const lat = element.lat ?? element.center?.lat;
+  const lon = element.lon ?? element.center?.lon;
+  if (!tags.name || lat === undefined || lon === undefined) return null;
+  const point = { lat, lng: lon };
+
+  return {
+    ref: `p${index}`,
+    // OSM's `name` is in the local script, so a Kyoto trip came back entirely in
+    // Japanese. Prefer the English name where the map has one, keeping the local
+    // name alongside it — the traveller needs both: one to read, one to point at.
+    name: displayName(tags),
+    kind: describeKind(tags),
+    coords: point,
+    notable: Boolean(tags.wikipedia || tags.wikidata || tags.heritage),
+    facts: factsFrom(tags, distanceKm(centre, point)),
+    cuisine: tags.cuisine,
+    website: tags.website,
+    openingHours: tags.opening_hours,
+    wikidata: tags.wikidata,
+    wikipedia: tags.wikipedia,
+  };
+}
+
 /**
- * Widens the search until it finds enough to work with — a dense old city needs 3km, a
+ * Widens the search until it finds enough to work with — a dense old city needs 4km, a
  * spread-out one needs 12km, and guessing one number for the world would fail both.
  */
 export async function fetchCandidates(coords: Coords, limit = 90): Promise<Candidate[]> {
@@ -168,31 +258,10 @@ export async function fetchCandidates(coords: Coords, limit = 90): Promise<Candi
           AbortSignal.timeout(Math.min(remaining, 12_000)),
         );
 
-        const candidates: Candidate[] = [];
-        for (const element of elements) {
-          const tags = element.tags ?? {};
-          const lat = element.lat ?? element.center?.lat;
-          const lon = element.lon ?? element.center?.lon;
-          if (!tags.name || lat === undefined || lon === undefined) continue;
-
-          candidates.push({
-            ref: `p${candidates.length}`,
-            // OSM's `name` is in the local script, so a Kyoto trip came back entirely in
-            // Japanese. Prefer the English name where the map has one, keeping the local
-            // name alongside it — the traveller needs both: one to read, one to point at.
-            name: displayName(tags),
-            kind: describeKind(tags),
-            coords: { lat, lng: lon },
-            notable: Boolean(tags.wikipedia || tags.wikidata || tags.heritage),
-            cuisine: tags.cuisine,
-            website: tags.website,
-            openingHours: tags.opening_hours,
-            wikidata: tags.wikidata,
-            wikipedia: tags.wikipedia,
-          });
-        }
-
-        const ranked = balance(candidates, limit);
+        const candidates = elements
+          .map((element, index) => toCandidate(element, coords, index))
+          .filter((candidate): candidate is Candidate => candidate !== null);
+        const ranked = balance(dedupe(candidates), limit);
 
         if (ranked.length >= 12) return ranked;
         if (radius === radii.at(-1) && ranked.length > 0) return ranked;
@@ -206,34 +275,36 @@ export async function fetchCandidates(coords: Coords, limit = 90): Promise<Candi
 }
 
 /**
- * Real places for a point, from whichever source is actually up. Overpass is richer, so it
- * leads; Wikipedia geosearch is thinner but dependable, so it catches the fall.
+ * Wikipedia's geolocated articles are how a town's landmarks get considered even when the map lists
+ * plenty of everyday places — and when a temple is mapped as a compound the point query can't see.
+ * A map entry that matches an article gains its link, a real prominence signal; articles with no
+ * map entry join the list as places of their own.
  */
-export async function fetchGroundedCandidates(
-  coords: Coords,
-): Promise<{ candidates: Candidate[]; source: string }> {
-  // Both start at once. Waiting for Overpass to fail before asking Wikipedia cost a Marrakech
-  // traveller 24 dead seconds; in parallel, the fallback is already in hand when it's needed.
+export function mergeWikipedia(fromOsm: Candidate[], fromWiki: Candidate[]): Candidate[] {
+  const merged = fromOsm.map((candidate) => ({ ...candidate, facts: { ...candidate.facts } }));
+  for (const article of fromWiki) {
+    const twin = merged.find((candidate) => sameName(candidate.name, article.name) && distanceKm(candidate.coords, article.coords) < 0.8);
+    if (twin) {
+      if (!twin.wikipedia) twin.wikipedia = article.wikipedia;
+      twin.facts.hasWikipedia = true;
+      if (article.facts.articleLength) twin.facts.articleLength = article.facts.articleLength;
+      twin.notable = true;
+    } else {
+      merged.push(article);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Real places for a point. Overpass brings the everyday places and Wikipedia the landmarks; both
+ * start at once, so neither waits for the other to fail.
+ */
+export async function fetchGroundedCandidates(coords: Coords): Promise<{ candidates: Candidate[]; source: string }> {
   const wiki = fetchWikiCandidates(coords).catch(() => [] as Candidate[]);
   const fromOsm = await fetchCandidates(coords);
-  if (fromOsm.length >= 12) return { candidates: fromOsm, source: "openstreetmap" };
+  const fromWiki = await wiki;
 
-  try {
-    const fromWiki = await wiki;
-    if (fromWiki.length === 0) {
-      return { candidates: fromOsm, source: "openstreetmap" };
-    }
-
-    // Both when we have both: OSM brings the everyday places, Wikipedia the landmarks.
-    const merged = [...fromOsm, ...fromWiki].map((candidate, index) => ({
-      ...candidate,
-      ref: `p${index}`,
-    }));
-    return {
-      candidates: merged,
-      source: fromOsm.length > 0 ? "openstreetmap+wikipedia" : "wikipedia",
-    };
-  } catch {
-    return { candidates: fromOsm, source: "openstreetmap" };
-  }
+  const source = fromOsm.length > 0 && fromWiki.length > 0 ? "openstreetmap+wikipedia" : fromOsm.length > 0 ? "openstreetmap" : "wikipedia";
+  return { candidates: balance(mergeWikipedia(fromOsm, fromWiki), 90), source };
 }

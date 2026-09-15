@@ -5,7 +5,9 @@ import { Amount } from "./currency/CurrencyControls";
 import { StarIcon } from "./icons";
 import { MapLink } from "./MapLink";
 import { PlaceArt } from "./PlaceArt";
-import { clockLabel, durationLabel, placeLocalScore } from "@/lib/trip-engine";
+import { hoursDefaultById } from "@/lib/hours-defaults";
+import { describeHours, parseOpeningHours } from "@/lib/opening-hours";
+import { clockLabel, durationLabel, localScoreBreakdown } from "@/lib/trip-engine";
 import {
   CATEGORIES,
   LOCALITY_TAGS,
@@ -13,12 +15,14 @@ import {
   type ItineraryItem,
   type LocalityTag,
   type Photo,
+  type Recommendation,
 } from "@/lib/types";
 
 const TAG_PILL: Record<LocalityTag, string> = {
   tourist_essential: "bg-indigo/10 text-indigo",
   local_favourite: "bg-brand/10 text-brand",
   hidden_gem: "bg-moss/10 text-moss",
+  small_local: "bg-paper-sunken text-ink-soft",
 };
 
 export type ItemCardActions = {
@@ -144,7 +148,7 @@ export function ItemCard({
               </>
             )}
             <span aria-hidden>·</span>
-            <span>{placeLocalScore(place)} local</span>
+            <LocalScore place={place} />
           </div>
 
           <Hours place={place} date={date} />
@@ -158,6 +162,10 @@ export function ItemCard({
             <p className="text-xs italic text-gold">
               Best between {place.timeWindow.start}–{place.timeWindow.end} — move it earlier if you can.
             </p>
+          )}
+
+          {item.closedWarning && (
+            <p className="text-xs font-medium text-danger">May be closed at this time — check locally, or move it to another day.</p>
           )}
 
           {(vote || tours) && (
@@ -250,13 +258,48 @@ function Stars({ value }: { value: number }) {
   );
 }
 
-/** Google's hours for the trip day's weekday when we have them; otherwise OpenStreetMap's listing. */
+/** "Why 74?": the parts of the local score, one tap away. */
+function LocalScore({ place }: { place: Recommendation }) {
+  const { score, parts } = localScoreBreakdown(place);
+  return (
+    <details className="group/score relative">
+      <summary className="cursor-pointer list-none underline decoration-dotted underline-offset-2 hover:text-brand [&::-webkit-details-marker]:hidden">
+        {score} local
+      </summary>
+      <div className="absolute left-0 top-full z-20 mt-1.5 w-64 rounded-2xl border border-line bg-paper-raised p-3 text-xs text-ink-soft shadow-[0_18px_40px_-24px_rgba(13,47,66,0.55)]">
+        <p className="mb-1.5 font-semibold text-ink">Why {score}?</p>
+        <ul className="space-y-1">
+          {parts.map((part) => (
+            <li key={part.label} className="flex justify-between gap-3">
+              <span>{part.label}</span>
+              <span className="tabular-nums text-ink">+{part.points}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-[11px] text-ink-faint">From the map&rsquo;s own facts about this place, not from ratings.</p>
+      </div>
+    </details>
+  );
+}
+
+/**
+ * Google's hours for the trip day's weekday when we have them; otherwise OpenStreetMap's listing in
+ * plain words, or the region's usual hours marked as usual. Never raw map syntax.
+ */
 function Hours({ place, date }: { place: ItineraryItem["place"]; date: string }) {
   const weekday = new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
   const google = place.details?.hours.find((h) => h.day.toLowerCase() === weekday.toLowerCase());
-  const text = google ? `${weekday}: ${google.hours}` : place.openingHours;
+  const listed = place.openingHours ? parseOpeningHours(place.openingHours) : null;
+  const usual = hoursDefaultById(place.hoursRule);
+  const text = google
+    ? `${weekday}: ${google.hours}`
+    : listed
+      ? describeHours(listed)
+      : place.openingHours
+        ? "Hours are listed on the map in a form we can't read — check locally"
+        : usual?.note;
   if (!text) return null;
-  const source = google ? "Google Maps" : "OpenStreetMap";
+  const source = google ? "Google Maps" : place.openingHours ? "OpenStreetMap" : "usual for the region";
 
   return (
     <p className="flex items-start gap-1.5 text-xs text-ink-soft" title={`Opening hours as listed on ${source}`}>
