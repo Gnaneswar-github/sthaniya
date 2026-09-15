@@ -79,7 +79,10 @@ export const destinationService = new DestinationService([
   new OpenMeteoProvider(),
 ]);
 
-/** Shown before the traveller types anything. Real content, not a popularity claim. */
+/**
+ * Shown before the traveller types anything: the cities we publish guides for, in their listed
+ * order, which spans Asia, Europe, Africa and the Americas. Real content, not a popularity claim.
+ */
 export function starterDestinations(limit = 8): Destination[] {
-  return [...CURATED].sort((a, b) => Number(b.verified) - Number(a.verified)).slice(0, limit);
+  return CURATED.slice(0, limit);
 }

@@ -1,5 +1,4 @@
 import sourced from "../../data/destinations.json";
-import { SUPPORTED_CITIES } from "../../types";
 import { score } from "../fuzzy";
 import type { Destination, DestinationProvider, DestinationQuery } from "../types";
 
@@ -12,8 +11,6 @@ type Entry = {
   credit: string;
   imageSourceUrl: string;
 };
-
-const verifiedNames = new Set(SUPPORTED_CITIES.map((c) => c.toLowerCase()));
 
 /**
  * Destinations we hold real content for: a Wikipedia summary and a licensed photograph.
@@ -32,7 +29,9 @@ export const CURATED: Destination[] = Object.entries(sourced as Record<string, E
     coords: entry.lat !== null && entry.lng !== null ? { lat: entry.lat, lng: entry.lng } : null,
     thumbnailUrl: `/destinations/${id}.jpg`,
     thumbnailCredit: entry.credit,
-    verified: verifiedNames.has(entry.title.toLowerCase()),
+    // No city's recommendations have been checked place by place by a person yet, so none claims to be.
+    verified: false,
+    guideSlug: id,
     provider: "curated",
   }),
 );

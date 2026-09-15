@@ -25,6 +25,10 @@ export type PublishedStory = {
   places: StoryPlace[];
   photos: string[];
   author_name: string;
+  /** Forum region slug, when the author picked one. */
+  region: string | null;
+  /** Forum theme slugs. */
+  themes: string[];
   /** Signed links for the photos, in order. */
   photoUrls: string[];
 };

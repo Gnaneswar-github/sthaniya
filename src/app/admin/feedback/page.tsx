@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AdminNav } from "@/components/AdminNav";
 import { FeedbackInbox } from "@/components/feedback/FeedbackInbox";
 import { Footer, Nav } from "@/components/Shell";
 
@@ -9,7 +10,8 @@ export default function FeedbackAdminPage() {
     <>
       <Nav />
       <main className="mx-auto w-full max-w-5xl flex-1 space-y-6 px-5 py-12">
-        <header className="space-y-2">
+        <header className="space-y-3">
+          <AdminNav current="/admin/feedback" />
           <h1 className="font-display text-4xl text-ink">Feedback</h1>
           <p className="text-[15px] text-ink-soft">Notes from people using Nativa. Only you can see this page.</p>
         </header>

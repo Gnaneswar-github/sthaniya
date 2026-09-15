@@ -27,9 +27,14 @@ export default async function StoriesPage() {
         title="Traveller stories"
         subtitle="Real trips from people who've been there — the places they'd pass on, in their own words and photos."
       >
-        <Link href="/stories/share" className="inline-flex rounded-full bg-gold-bright px-6 py-3 text-sm font-semibold text-deep transition hover:bg-white">
-          Share your story
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/stories/share" className="inline-flex rounded-full bg-gold-bright px-6 py-3 text-sm font-semibold text-deep transition hover:bg-white">
+            Share your story
+          </Link>
+          <Link href="/forum" className="inline-flex rounded-full px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/40 transition hover:bg-white/10">
+            Visit the forum
+          </Link>
+        </div>
       </PageHero>
 
       <main className="mx-auto w-full max-w-6xl flex-1 space-y-14 px-5 py-10">

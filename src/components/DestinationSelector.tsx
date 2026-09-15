@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
-import { CheckIcon } from "./icons";
 import { KIND_LABEL, type Destination } from "@/lib/destinations/types";
 import { readMigrated } from "@/lib/trip-storage";
 
@@ -201,9 +200,9 @@ export function DestinationSelector({
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline gap-2">
                         <span className="truncate text-[15px] text-ink">{destination.name}</span>
-                        {destination.verified && (
-                          <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] font-semibold text-moss">
-                            <CheckIcon className="h-3 w-3" /> Verified
+                        {destination.guideSlug && (
+                          <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-brand/10 px-1.5 py-px text-[11px] font-semibold text-brand-deep">
+                            <BookIcon /> City guide
                           </span>
                         )}
                       </span>
@@ -226,6 +225,15 @@ export function DestinationSelector({
         </div>
       )}
     </div>
+  );
+}
+
+function BookIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15Z" />
+      <path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5" />
+    </svg>
   );
 }
 

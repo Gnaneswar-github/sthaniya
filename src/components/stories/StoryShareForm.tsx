@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { ThemePicker } from "../forum/ThemePicker";
 import { CheckIcon, CloseIcon } from "../icons";
 import { DictationButton } from "../voice/DictationButton";
 import { track } from "@/lib/analytics";
 import { compressPhoto } from "@/lib/compress-photo";
+import { FORUM_REGIONS } from "@/lib/forum";
 import { PLACE_KINDS, STORY_BUCKET, STORY_LIMITS, type PlaceKind, type StoryRealm } from "@/lib/stories";
 import { appendSpoken } from "@/lib/voice";
 
@@ -33,6 +35,8 @@ function monthLabel(value: string): string | null {
 export function StoryShareForm({ initialPlace = "" }: { initialPlace?: string }) {
   const [realm, setRealm] = useState<StoryRealm>("earth");
   const [place, setPlace] = useState(initialPlace);
+  const [region, setRegion] = useState("");
+  const [themes, setThemes] = useState<string[]>([]);
   const [month, setMonth] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -47,7 +51,7 @@ export function StoryShareForm({ initialPlace = "" }: { initialPlace?: string })
   const [problem, setProblem] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
   const photosRef = useRef<Photo[]>([]);
-  const ids = { place: useId(), month: useId(), title: useId(), body: useId(), name: useId(), email: useId(), photos: useId() };
+  const ids = { region: useId(), place: useId(), month: useId(), title: useId(), body: useId(), name: useId(), email: useId(), photos: useId() };
 
   useEffect(() => {
     photosRef.current = photos;
@@ -110,6 +114,8 @@ export function StoryShareForm({ initialPlace = "" }: { initialPlace?: string })
       const { error } = await supabase.from("stories").insert({
         id,
         realm,
+        region: realm === "beyond" ? "beyond" : region || null,
+        themes,
         place: place.trim().slice(0, STORY_LIMITS.place),
         travelled_on: monthLabel(month),
         title: title.trim().slice(0, STORY_LIMITS.title),
@@ -217,6 +223,24 @@ export function StoryShareForm({ initialPlace = "" }: { initialPlace?: string })
           <input id={ids.month} type="month" value={month} onChange={(event) => setMonth(event.target.value)} className={fieldClass} />
         </div>
       </div>
+
+      {realm === "earth" && (
+        <div className="grid gap-1.5">
+          <label htmlFor={ids.region} className={labelClass}>
+            Region <span className="font-normal text-ink-faint">— so it shows under the right destination</span>
+          </label>
+          <select id={ids.region} value={region} onChange={(event) => setRegion(event.target.value)} className={fieldClass}>
+            <option value="">Choose a region</option>
+            {FORUM_REGIONS.filter((option) => option.slug !== "beyond").map((option) => (
+              <option key={option.slug} value={option.slug}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <ThemePicker legend="What kind of trip?" value={themes} onChange={setThemes} />
 
       <div className="grid gap-1.5">
         <div className="flex items-center justify-between gap-2">

@@ -27,9 +27,13 @@ export function Nav({ overHero = false }: { overHero?: boolean }) {
         </Link>
 
         <div className="flex min-w-0 items-center gap-0.5 sm:gap-1">
-          <Link href="/destinations" className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-sm transition sm:px-3 ${link}`}>
+          <Link href="/destinations" className={`whitespace-nowrap rounded-lg px-2 py-2 text-sm transition sm:px-3 ${link}`}>
             <span className="sm:hidden">Guides</span>
             <span className="hidden sm:inline">City guides</span>
+          </Link>
+
+          <Link href="/forum" className={`whitespace-nowrap rounded-lg px-2 py-2 text-sm transition sm:px-3 ${link}`}>
+            Forum
           </Link>
 
           <span className="mx-1.5 hidden sm:block">
@@ -40,11 +44,13 @@ export function Nav({ overHero = false }: { overHero?: boolean }) {
 
           <Link
             href="/plan"
-            className={`ml-1 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`ml-1 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-semibold transition sm:px-4 ${
               overHero ? "bg-white text-deep hover:bg-gold-bright" : "bg-brand text-white hover:bg-brand-deep"
             }`}
           >
-            Plan a trip
+            {/* "Plan" on a phone, so the nav fits a 375px screen alongside Forum. */}
+            <span className="sm:hidden">Plan</span>
+            <span className="hidden sm:inline">Plan a trip</span>
           </Link>
         </div>
       </nav>
@@ -62,11 +68,14 @@ export function Footer() {
             Built for people with a few days in an unfamiliar city and no local friend to ask.
           </p>
           <p className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
+            <Link href="/forum" className="font-semibold text-brand hover:underline">
+              Forum
+            </Link>
+            <Link href="/forum/ask" className="font-semibold text-brand hover:underline">
+              Ask a question
+            </Link>
             <Link href="/stories" className="font-semibold text-brand hover:underline">
               Traveller stories
-            </Link>
-            <Link href="/stories/share" className="font-semibold text-brand hover:underline">
-              Share your story
             </Link>
           </p>
         </div>

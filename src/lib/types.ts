@@ -1,10 +1,4 @@
 /**
- * Cities with verified data behind them. A city joins this list only once its anchors
- * are checked (PRD §9) — never just because it is on the roadmap.
- */
-export const SUPPORTED_CITIES = ["Pune"];
-
-/**
  * Deliberately limited to interests the dataset can actually serve. Offering Nightlife or
  * Wellness with nothing behind them would produce empty days, which is the failure the
  * resilience rule exists to prevent.

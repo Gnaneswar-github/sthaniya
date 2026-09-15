@@ -50,6 +50,8 @@ export type Destination = {
    * Everything else is real but unverified by us, and says so.
    */
   verified: boolean;
+  /** Set when Nativa publishes a city guide for this place: a licensed photo, a summary and last year's weather. */
+  guideSlug?: string;
   provider: string;
   /**
    * The upstream's own relevance score, 0–1, where it publishes one. Used only to order

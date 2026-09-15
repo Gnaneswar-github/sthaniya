@@ -93,16 +93,18 @@ export function HeroPrompt() {
           }}
           className="max-h-40 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none placeholder:text-ink-faint/80 sm:text-base"
         />
-        <DictationButton
-          label="Describe your trip by voice"
-          className="absolute right-3 top-3 sm:static sm:mb-0.5"
-          onText={(spoken) => {
-            setText((current) => appendSpoken(current, spoken));
-            requestAnimationFrame(() => {
-              if (areaRef.current) grow(areaRef.current);
-            });
-          }}
-        />
+        {/* Top-right corner of the stacked card on a phone; inline beside the button from sm up. */}
+        <span className="absolute right-3 top-3 sm:static sm:mb-0.5">
+          <DictationButton
+            label="Describe your trip by voice"
+            onText={(spoken) => {
+              setText((current) => appendSpoken(current, spoken));
+              requestAnimationFrame(() => {
+                if (areaRef.current) grow(areaRef.current);
+              });
+            }}
+          />
+        </span>
         {/* Never disabled: an empty click focuses the field rather than reading as broken. */}
         <button
           type="button"
