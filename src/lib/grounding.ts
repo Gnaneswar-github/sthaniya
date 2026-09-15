@@ -276,22 +276,34 @@ const MAX_WORDS = 22;
  * Keeps only sentences whose claims the facts support, trimmed to about twenty words. Returns null
  * when nothing survives, so the caller can fall back to a plain line of its own.
  */
+/** Abbreviations whose full stop doesn't end a sentence: "St. Mary Cathedral", "Sri. …", "Mt. Abu". */
+const ABBREVIATION = /\b(St|Sts|Sri|Smt|Dr|Mt|Ft|No|Rd|Ave|Jr|Sr|vs|approx|e\.g|i\.e)\.\s/gi;
+const NAME_TOKEN = " ";
+const DOT_TOKEN = "";
+
 export function groundLine(line: string, ctx: GroundingContext): string | null {
-  const text = line.replace(/\s+/g, " ").trim();
+  let text = line.replace(/\s+/g, " ").trim();
   if (!text) return null;
-  const withoutName = (sentence: string) => (ctx.name ? sentence.replace(new RegExp(escape(ctx.name), "gi"), " ") : sentence);
+
+  // Protect the place's own name and common abbreviations, so neither splits a sentence or trips a rule.
+  if (ctx.name) text = text.replace(new RegExp(escape(ctx.name), "gi"), NAME_TOKEN);
+  text = text.replace(ABBREVIATION, (match) => match.replace(".", DOT_TOKEN));
 
   const kept = text
     .split(/(?<=[.!?])\s+/)
-    .filter((sentence) =>
-      CLAIMS.every((rule) => {
-        const match = withoutName(sentence).match(rule.pattern);
+    .filter((sentence) => {
+      const checked = sentence.replaceAll(NAME_TOKEN, " ").replaceAll(DOT_TOKEN, ".");
+      return CLAIMS.every((rule) => {
+        const match = checked.match(rule.pattern);
         return !match || rule.supported(ctx, match[0]);
-      }),
-    );
-  if (kept.length === 0) return null;
+      });
+    });
+  const restore = (value: string) => value.replaceAll(NAME_TOKEN, ctx.name).replaceAll(DOT_TOKEN, ".");
+  const result = restore(kept.join(" ")).trim();
+  // A fragment ("St.") is not a line worth showing.
+  if (kept.length === 0 || result.split(" ").filter((word) => /\p{L}/u.test(word)).length < 3) return null;
 
-  const words = kept.join(" ").split(" ");
-  if (words.length <= MAX_WORDS) return kept.join(" ");
+  const words = result.split(" ");
+  if (words.length <= MAX_WORDS) return result;
   return `${words.slice(0, MAX_WORDS).join(" ").replace(/[,;:—-]+$/, "")}.`;
 }

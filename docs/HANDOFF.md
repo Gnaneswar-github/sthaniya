@@ -564,6 +564,29 @@ During this run the public Overpass instance was not answering from the test mac
 
 With OpenStreetMap available, Kumbakonam's 4 km node query returns Sarangapani Temple, St. Mary Cathedral, 14 places of worship, 6 restaurants and only 1 café (Rola Bakery). So a café every day is not possible from map data alone for this town; the trip says so. Endorsements (P2-11) are the way to add the coffee places locals know.
 
+### Live check of brief 1 on gonativa.vercel.app (commit 3896ffe, 15 Sept 2026)
+
+OpenStreetMap was available for this run, so candidates came from the map and Wikipedia together. The plan held Nageswaraswamy, Kasi Viswanathar, Adi Kumbeswarar, Banapuriswarar, Abimukeswarar and two Vinayagar temples, Rola Bakery (café) and St. Mary Cathedral.
+
+| Check | Built (9 stops) | After "Slow it down" (6) | After "Make it more local" (6) |
+|---|---|---|---|
+| ≤3 stops per day | PASS (3/3/3) | PASS (2/2/2) | PASS (2/2/2) |
+| Driving links | PASS | PASS | PASS |
+| No temple 12:30–16:00 without own hours | PASS | PASS | PASS |
+| ≥1 café per day | FAIL (1/0/0): the map has one café within 4 km; the trip says "Only 1 place for cafés came up on the map near Kumbakonam, so not every day has one." | FAIL (same, note shown) | FAIL (same, note shown) |
+| Sarangapani still present | FAIL: on the map it is a plain point with no Wikipedia, Wikidata or heritage link, and its Wikipedia article has no coordinates, so nothing marks it as a landmark and the model didn't choose it. Adi Kumbeswarar and Nageswaraswamy were kept as landmarks through both edits. | FAIL (same) | FAIL (same) |
+| No invented physical or crowd claims | PASS | PASS | PASS |
+| St. Mary Cathedral labelled Church, no Tickets | PASS (Church, no tickets, despite `religion=hindu` on the map) | PASS | PASS |
+| Summary matches stop count | PASS | PASS | PASS |
+| Booking `group_adults=3`, October dates | PASS (2–5 Oct) | PASS | PASS |
+| No raw OSM hours visible | PASS (Rola Bakery's unreadable listing shows "check locally") | PASS | PASS |
+
+Found in this run and fixed straight after: the fit line for "St. Mary Cathedral" was cut to "St." because the sentence splitter treated the abbreviation as a full stop.
+
+**What would close the two remaining fails.** Both are about data, not code:
+- Add `wikipedia` / `wikidata` tags to Sarangapani Temple on OpenStreetMap (a public edit anyone can make), or record it as a founder endorsement once P2-11 exists.
+- Coffee places locals use (degree coffee shops, messes) are mostly unmapped or mapped as restaurants. Mapping them, or endorsing them (P2-11), is the honest route. Code can't claim a restaurant serves filter coffee.
+
 ### Not done yet
 
 P2-9 booking link disclosure and ranking isolation test, P2-10 analytics and `/admin/metrics`, P2-11 endorsements store and a Kumbakonam guide (needs a migration, so ask first), P2-12 AI extraction pass, P3-13 moderation pre-screen.

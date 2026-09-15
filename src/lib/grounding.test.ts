@@ -120,6 +120,18 @@ describe("groundLine", () => {
     expect(groundLine("Town Hall Square for your photography.", { ...base, category: "sight", name: "Town Hall Square" })).toBe("Town Hall Square for your photography.");
   });
 
+  it("doesn't split a sentence at the full stop in a name like 'St. Mary Cathedral'", () => {
+    const church = { ...base, category: "church" as const, name: "St. Mary Cathedral" };
+    expect(groundLine("St. Mary Cathedral is a Catholic church 0.8 km from centre for your spiritual interest.", church)).toBe(
+      "St. Mary Cathedral is a Catholic church 0.8 km from centre for your spiritual interest.",
+    );
+    expect(groundLine("Visit St. Joseph's nearby for a spiritual stop.", { ...church, name: "Other Church" })).toBe("Visit St. Joseph's nearby for a spiritual stop.");
+  });
+
+  it("drops a fragment too short to be a line", () => {
+    expect(groundLine("St.", { ...base, category: "church", name: "X" })).toBeNull();
+  });
+
   it("trims long lines to about twenty words", () => {
     const long = groundLine(Array.from({ length: 40 }, () => "coffee").join(" "), base)!;
     expect(long.split(" ").length).toBeLessThanOrEqual(22);
